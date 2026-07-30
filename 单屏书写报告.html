@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>医学影像报告书写系统 | 智影报告工作站</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #eef2f6;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .report-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* 左侧阅片区 */
+        .viewing-area {
+            width: 50%;
+            background: linear-gradient(145deg, #0a0f1e 0%, #080c18 100%);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            overflow-y: auto;
+        }
+        .viewing-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .viewing-header h2 {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .image-placeholder {
+            margin: 20px;
+            background: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(2px);
+            border-radius: 28px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 380px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .dicom-sim {
+            text-align: center;
+            color: #94a3b8;
+        }
+        .dicom-sim i {
+            font-size: 72px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+            color: #3b82f6;
+        }
+        .toolbar-sim {
+            padding: 16px 24px;
+            display: flex;
+            gap: 28px;
+            justify-content: center;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: auto;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        /* 右侧报告区 */
+        .report-area {
+            width: 50%;
+            background: #f6f9fc;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .report-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px 20px 24px;
+            scroll-behavior: smooth;
+        }
+
+        /* 信息卡片 - 统一行间距 */
+        .info-card {
+            background: rgba(255,255,255,0.98);
+            border-radius: 32px;
+            padding: 20px 28px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+            position: relative;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px 24px;
+        }
+        .info-item, .long-text-item {
+            display: flex;
+            align-items: baseline;
+            font-size: 0.8rem;
+            border-bottom: 1px dashed #eef2f8;
+            padding-bottom: 6px;
+            margin-bottom: 0;
+            line-height: 1.4;
+        }
+        .info-label {
+            width: 88px;
+            font-weight: 600;
+            color: #0f172a;
+            flex-shrink: 0;
+        }
+        .info-value {
+            color: #334155;
+            flex: 1;
+            word-break: break-word;
+        }
+        .long-text-item {
+            margin-top: 6px;
+        }
+        /* 状态徽章 */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            position: absolute;
+            top: 20px;
+            right: 28px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            cursor: help;
+        }
+        .status-writing { background: #eef2ff; color: #1e40af; border: 1px solid #c7d2fe; }
+        .status-pending { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+        .status-rejected { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .status-approved { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        
+        /* 悬浮提示自定义（驳回原因） */
+        [data-tooltip] {
+            position: relative;
+        }
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            z-index: 20;
+            display: none;
+            font-weight: 400;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            pointer-events: none;
+        }
+        [data-tooltip]:hover:before {
+            display: block;
+        }
+
+        /* 工具栏 */
+        .template-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+        .rich-controls {
+            background: white;
+            border-radius: 48px;
+            padding: 4px 16px;
+            display: flex;
+            gap: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2edf2;
+        }
+        .rich-btn, .font-size-select {
+            background: transparent;
+            border: none;
+            font-size: 0.85rem;
+            color: #334155;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .font-size-select {
+            width: auto;
+            padding: 0 10px;
+            font-size: 0.75rem;
+        }
+        .rich-btn:hover, .font-size-select:hover {
+            background: #f1f5f9;
+        }
+        .template-btn {
+            background: white;
+            border-radius: 48px;
+            padding: 6px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e2edf2;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: 0.2s;
+            position: relative;
+        }
+        .template-btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+
+        /* 悬浮模板面板 (hover显示) */
+        .template-hover-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 460px;
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+            border: 1px solid #eef2f8;
+            z-index: 1001;
+            display: none;
+            overflow: hidden;
+            backdrop-filter: blur(0px);
+        }
+        .template-hover-panel.show {
+            display: block;
+        }
+        .panel-header {
+            padding: 16px 20px 8px;
+            border-bottom: 1px solid #f0f2f5;
+            font-weight: 600;
+            font-size: 0.85rem;
+            background: white;
+        }
+        .panel-tabs {
+            display: flex;
+            gap: 24px;
+            padding: 8px 20px 0;
+            border-bottom: 1px solid #edf2f7;
+            background: white;
+        }
+        .panel-tab {
+            cursor: pointer;
+            font-weight: 500;
+            padding: 8px 0;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .panel-tab.active {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+        }
+        .panel-tree {
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 12px 12px;
+            background: #ffffff;
+        }
+        .panel-preview {
+            background: #fbfdfe;
+            margin: 8px 16px 12px;
+            padding: 12px;
+            border-radius: 20px;
+            border: 1px solid #eef2f8;
+            font-size: 0.7rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .panel-actions {
+            padding: 12px 16px 16px;
+            border-top: 1px solid #edf2f7;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            background: white;
+        }
+        .tree-node {
+            padding: 8px 12px 8px 20px;
+            cursor: pointer;
+            border-radius: 16px;
+            transition: all 0.1s;
+            margin: 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.75rem;
+        }
+        .tree-node i { width: 20px; color: #6366f1; }
+        .tree-node:hover { background: #f1f5f9; }
+        .tree-node.active { background: #e0e7ff; color: #1e40af; font-weight: 500; }
+        .tree-folder { font-weight: 500; }
+        .tree-children { margin-left: 20px; border-left: 1px dashed #e2e8f0; }
+
+        /* 报告编辑区 */
+        .report-content {
+            background: white;
+            border-radius: 32px;
+            padding: 22px 28px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        .section-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .rich-editor {
+            background: #ffffff;
+            border: 1px solid #e9edf2;
+            border-radius: 24px;
+            padding: 14px 18px;
+            font-size: 0.85rem;
+            overflow-y: auto;
+            line-height: 1.55;
+            transition: 0.15s;
+            min-height: 90px;
+        }
+        .rich-editor:focus {
+            border-color: #94a3b8;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.05);
+        }
+        .rich-editor.disabled-editor {
+            background: #f9fbfd;
+            color: #64748b;
+            cursor: not-allowed;
+            border-color: #e2e8f0;
+        }
+        .quality-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: white;
+            border-radius: 28px;
+            padding: 12px 24px;
+            margin-bottom: 20px;
+            border: 1px solid #ecf3f8;
+        }
+        .quality-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #fafcff;
+            padding: 4px 16px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+        }
+        select {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 30px;
+            padding: 5px 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        .action-bar {
+            background: #f6f9fc;
+            padding: 14px 24px 18px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+            border-top: 1px solid #e5edf2;
+        }
+        .btn {
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            transition: 0.2s;
+            cursor: pointer;
+            border: none;
+            background: white;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .btn-primary { background: #2563eb; border: none; color: white; }
+        .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px);}
+        .btn-success { background: #10b981; border: none; color: white;}
+        .btn-danger { background: #ef4444; border: none; color: white;}
+        .btn-outline { background: white; border: 1px solid #cbd5e1; }
+        
+        /* 危急值抽屉 (保持不变) */
+        .drawer {
+            position: fixed;
+            right: -460px;
+            top: 0;
+            width: 460px;
+            height: 100%;
+            background: #ffffff;
+            box-shadow: -12px 0 40px rgba(0,0,0,0.12);
+            transition: right 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.2);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            border-radius: 32px 0 0 32px;
+        }
+        .drawer.open { right: 0; }
+        .timeline-item {
+            font-size: 0.7rem;
+            padding: 8px 0;
+            border-bottom: 1px dashed #eef2f8;
+            display: flex;
+            gap: 12px;
+        }
+        @media (max-width: 1100px) {
+            .info-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media print {
+            .viewing-area, .action-bar, .template-bar, .quality-row, .status-badge { display: none; }
+            .report-area { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="report-container">
+    <!-- 左侧阅片区 -->
+    <div class="viewing-area">
+        <div class="viewing-header">
+            <h2><i class="fas fa-x-ray"></i> 影像阅片 · 智能定位</h2>
+        </div>
+        <div class="image-placeholder">
+            <div class="dicom-sim">
+                <i class="fas fa-brain"></i>
+                <p style="font-weight: 500;">CT 腹部 横断面｜增强序列</p>
+                <p style="font-size: 0.7rem; margin-top: 6px;">Series: 3 / 12 | Thickness 1.25mm</p>
+                <div style="margin-top: 28px; display: flex; gap: 24px; justify-content: center;">
+                    <i class="fas fa-search-plus"></i> <i class="fas fa-adjust"></i> <i class="fas fa-arrows-alt"></i>
+                </div>
+            </div>
+        </div>
+        <div class="toolbar-sim">
+            <span><i class="fas fa-layer-group"></i> 序列: 3/12</span>
+            <span><i class="fas fa-sliders-h"></i> 窗宽: 350 / 窗位: 40</span>
+            <span><i class="fas fa-play-circle"></i> 动态播放</span>
+        </div>
+    </div>
+
+    <!-- 右侧报告区 -->
+    <div class="report-area">
+        <div class="report-scroll">
+            <div class="info-card" id="infoCard">
+                <div class="info-grid" id="shortInfoGrid"></div>
+                <div id="longTextContainer"></div>
+                <div id="statusBadgeContainer"></div>
+            </div>
+
+            <div class="template-bar">
+                <div class="rich-controls">
+                    <button class="rich-btn" data-command="bold"><i class="fas fa-bold"></i></button>
+                    <button class="rich-btn" data-command="italic"><i class="fas fa-italic"></i></button>
+                    <button class="rich-btn" data-command="underline"><i class="fas fa-underline"></i></button>
+                    <button class="rich-btn" data-command="insertOrderedList"><i class="fas fa-list-ol"></i></button>
+                    <button class="rich-btn" data-command="insertUnorderedList"><i class="fas fa-list-ul"></i></button>
+                    <select class="font-size-select" id="fontSizeSelect"><option value="12px">小</option><option value="14px" selected>中</option><option value="16px">大</option></select>
+                </div>
+                <div class="template-btn" id="templateBtnHover">
+                    <i class="fas fa-file-alt"></i> 报告模板
+                    <!-- 悬浮模板面板 -->
+                    <div id="templateHoverPanel" class="template-hover-panel">
+                        <div class="panel-header">📚 结构化报告模板</div>
+                        <div class="panel-tabs">
+                            <div class="panel-tab active" data-panel-tab="public">公共模板</div>
+                            <div class="panel-tab" data-panel-tab="private">私人模板</div>
+                        </div>
+                        <div class="panel-tree" id="hoverTemplateTree"></div>
+                        <div id="hoverPreviewArea" class="panel-preview" style="display: none;">
+                            <div style="font-weight:600; margin-bottom:6px;">模板预览</div>
+                            <div id="hoverPreviewContent"></div>
+                        </div>
+                        <div class="panel-actions">
+                            <button id="hoverAppendBtn" class="btn btn-outline">追加段落</button>
+                            <button id="hoverReplaceBtn" class="btn btn-primary">替换全文</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-content">
+                <div class="report-section"><div class="section-title"><i class="fas fa-camera"></i> 检查方法</div><div id="methodEditor" class="rich-editor" contenteditable="true">采用西门子64排CT扫描，层厚5mm，增强扫描经肘静脉注入对比剂。</div></div>
+                <div class="report-section"><div class="section-title"><i class="fas fa-eye"></i> 影像表现</div><div id="findingEditor" class="rich-editor" contenteditable="true">肝脏大小形态未见异常，实质内未见异常密度灶。胆囊不大，胰腺形态自然。双肾未见异常，腹膜后未见肿大淋巴结。</div></div>
+                <div class="report-section"><div class="section-title"><i class="fas fa-stethoscope"></i> 影像结论</div><div id="conclusionEditor" class="rich-editor" contenteditable="true">腹部CT平扫+增强未见明确异常，请结合临床。</div></div>
+            </div>
+
+            <div class="quality-row">
+                <div class="quality-item"><label>阴阳性：</label><select id="posNeg"><option>阴性</option><option>阳性</option></select></div>
+                <div class="quality-item"><label>疾病分类：</label><select id="diseaseCat"><option>无异常</option><option>占位性病变</option><option>炎症性病变</option></select></div>
+                <div class="quality-item"><label>影像质控：</label><select id="imageQC"><option>甲级</option><option>乙级</option><option>丙级</option></select></div>
+                <div class="quality-item"><label>报告质控：</label><select id="reportQC"><option>通过</option><option>待复审</option></select></div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-outline" id="opLogBtn"><i class="fas fa-history"></i> 日志</button>
+            <button class="btn btn-outline" id="criticalValueBtn"><i class="fas fa-exclamation-triangle"></i> 危急值</button>
+            <button class="btn btn-outline" id="saveReportBtn"><i class="fas fa-save"></i> 保存草稿</button>
+            <button class="btn btn-success" id="completeReportBtn"><i class="fas fa-check-double"></i> 完成报告</button>
+            <button class="btn btn-outline" id="modifyReportBtn"><i class="fas fa-edit"></i> 修改报告</button>
+            <button class="btn btn-primary" id="submitAuditBtn"><i class="fas fa-paper-plane"></i> 提交审核</button>
+            <button class="btn btn-primary" id="approveBtn"><i class="fas fa-thumbs-up"></i> 通过</button>
+            <button class="btn btn-warning" id="rejectBtn"><i class="fas fa-thumbs-down"></i> 驳回</button>
+            <button class="btn btn-outline" id="printBtn"><i class="fas fa-print"></i> 打印</button>
+        </div>
+    </div>
+</div>
+
+<!-- 危急值抽屉 -->
+<div id="criticalDrawer" class="drawer"><div class="drawer-header" style="padding:20px 24px; border-bottom:1px solid #f0f2f5; display:flex; justify-content: space-between;"><span>⚠️ 危急值上报</span><i class="fas fa-times" id="closeCriticalDrawer" style="cursor:pointer;"></i></div>
+<div class="drawer-content" style="padding:24px;"><select id="criticalType" style="width:100%; padding:10px; border-radius:20px;"><option value="">选择危急值分类</option>
+<option>低血糖危象（血糖<2.2mmol/L）</option><option>高钾血症（血钾>6.5mmol/L）</option><option>急性心肌梗死（肌钙蛋白阳性）</option><option>脑出血（CT显示新鲜出血）</option><option>肺动脉栓塞（CTA充盈缺损）</option><option>主动脉夹层</option><option>危急影像发现（气胸、心包积液）</option></select>
+<textarea id="criticalDesc" rows="2" placeholder="详细描述（非必填）" style="width:100%; margin-top:16px; border-radius:20px; padding:10px;"></textarea>
+<button id="submitCriticalBtn" class="btn btn-danger" style="width:100%; margin-top:20px;">确认上报</button>
+<div class="timeline" style="margin-top:24px;"><div style="font-weight:600;">上报时间轴</div><div id="timelineList"></div></div></div></div>
+
+<script>
+    // ========== 1. 信息字段增强：新增 检查医院、检查时间 ==========
+    const shortFieldsBase = [
+        { label: '患者姓名', value: '张XX' }, { label: '年龄', value: '50岁' }, { label: '性别', value: '女' },
+        { label: '患者编号', value: 'P00012345' }, { label: '检查编号', value: 'CT20250429001' }, { label: '检查类型', value: 'CT' },
+        { label: '检查部位', value: '腹部' }, { label: '检查项目', value: '腹部平扫+增强' }, { label: '申请医生', value: '李XX' },
+        { label: '申请科室', value: 'XX外科' }, 
+        { label: '检查医院', value: 'XX医院放射科' }, { label: '检查时间', value: '2026-04-29 09:30' }
+    ];
+    const longTextFields = [
+        { label: '主诉', value: '上腹部隐痛1月，加重3天' },
+        { label: '临床体征', value: '腹软，无压痛，肝区叩击痛阴性' },
+        { label: '临床诊断', value: '腹痛待查：慢性胃炎？' },
+        { label: '病史', value: '高血压病史5年，口服硝苯地平' }
+    ];
+
+    function renderInfo() {
+        document.getElementById('shortInfoGrid').innerHTML = shortFieldsBase.map(item => `<div class="info-item"><div class="info-label">${item.label}</div><div class="info-value">${item.value}</div></div>`).join('');
+        document.getElementById('longTextContainer').innerHTML = longTextFields.map(item => `<div class="long-text-item"><div class="info-label">${item.label}</div><div class="info-value">${item.value}</div></div>`).join('');
+    }
+    renderInfo();
+
+    // ========== 报告状态管理（驳回时tooltip显示原因） ==========
+    let reportStatus = 'writing';   // writing, pending, rejected, approved
+    let rejectReason = '影像表现描述与临床不符，请补充细节。';
+    const editors = ['methodEditor', 'findingEditor', 'conclusionEditor'];
+    function setEditable(editable) {
+        editors.forEach(id => {
+            const el = document.getElementById(id);
+            if (editable) {
+                el.setAttribute('contenteditable', 'true');
+                el.classList.remove('disabled-editor');
+            } else {
+                el.setAttribute('contenteditable', 'false');
+                el.classList.add('disabled-editor');
+            }
+        });
+    }
+    function updateStatusBadge() {
+        const container = document.getElementById('statusBadgeContainer');
+        const existing = document.querySelector('.status-badge');
+        if (existing) existing.remove();
+        const map = { 
+            writing: { text: '草稿', class: 'status-writing', icon: 'fa-pen-fancy' }, 
+            pending: { text: '待审核', class: 'status-pending', icon: 'fa-hourglass-half' }, 
+            rejected: { text: '已驳回', class: 'status-rejected', icon: 'fa-times-circle' }, 
+            approved: { text: '已通过', class: 'status-approved', icon: 'fa-check-circle' } 
+        };
+        const cur = map[reportStatus];
+        const badge = document.createElement('div');
+        badge.className = `status-badge ${cur.class}`;
+        badge.innerHTML = `<i class="fas ${cur.icon}"></i> ${cur.text}`;
+        if (reportStatus === 'rejected') {
+            badge.setAttribute('data-tooltip', `驳回原因: ${rejectReason}`);
+        }
+        document.getElementById('infoCard').appendChild(badge);
+        // 控制编辑权限
+        if (reportStatus === 'approved') setEditable(false);
+        else if (reportStatus === 'pending') setEditable(false);
+        else setEditable(true);
+    }
+    updateStatusBadge();
+
+    // 富文本
+    let activeEditor = null;
+    editors.forEach(id => { const el = document.getElementById(id); el.addEventListener('focus', () => activeEditor = el); el.addEventListener('click', () => activeEditor = el); });
+    function applyCmd(cmd) {
+        if (activeEditor) { activeEditor.focus(); document.execCommand(cmd, false, null); }
+        else { editors.forEach(id => { document.getElementById(id).focus(); document.execCommand(cmd, false, null); }); }
+    }
+    document.querySelectorAll('.rich-btn[data-command]').forEach(btn => btn.addEventListener('click', () => applyCmd(btn.dataset.command)));
+    document.getElementById('fontSizeSelect').addEventListener('change', e => editors.forEach(id => document.getElementById(id).style.fontSize = e.target.value));
+    editors.forEach(id => document.getElementById(id).style.fontSize = '14px');
+
+    // ========== 模板数据（与之前保持一致） ==========
+    const publicTemplates = [
+        { name: '📁 腹部常规', type: 'folder', children: [{ name: '📁 CT腹部', type: 'folder', children: [{ name: '腹部CT平扫报告', type: 'template', content: { method: '常规平扫CT，层厚5mm', finding: '肝实质均匀，未见异常密度灶，胆囊不大。', conclusion: '腹部CT未见明确异常。' } }, { name: '腹部CT增强报告', type: 'template', content: { method: '三期动态增强扫描', finding: '肝实质强化均匀，未见异常强化灶。', conclusion: '腹部增强CT未见明确占位性病变。' } }] }] },
+        { name: '📁 胸部', type: 'folder', children: [{ name: '胸部CT平扫', type: 'template', content: { method: '螺旋CT扫描', finding: '双肺清晰，未见结节与实变。', conclusion: '胸部平扫未见异常。' } }] }
+    ];
+    const privateTemplates = [
+        { name: '📁 我的专属', type: 'folder', children: [{ name: '肝脏MRI报告', type: 'template', content: { method: 'T1/T2序列，DWI', finding: '肝右叶小囊肿，边界清晰。', conclusion: '良性囊肿可能性大。' } }, { name: '胰腺炎随访', type: 'template', content: { method: '增强扫描', finding: '胰腺形态信号未见异常，胰周未见渗出。', conclusion: '胰腺未见明确活动性病变。' } }] }
+    ];
+    let currentPanelTab = 'public';
+    let currentSelectedTemplate = null;
+
+    // 递归构建树 (支持折叠)
+    function buildHoverTree(container, nodes, level = 0) {
+        nodes.forEach(node => {
+            const wrapper = document.createElement('div');
+            const nodeDiv = document.createElement('div');
+            nodeDiv.className = 'tree-node';
+            nodeDiv.style.paddingLeft = `${level * 20 + 16}px`;
+            const icon = node.type === 'folder' ? '<i class="fas fa-folder-open"></i>' : '<i class="fas fa-file-alt"></i>';
+            nodeDiv.innerHTML = `${icon} <span>${node.name}</span>`;
+            if (node.type === 'folder') {
+                nodeDiv.classList.add('tree-folder');
+                const childrenDiv = document.createElement('div');
+                childrenDiv.className = 'tree-children';
+                childrenDiv.style.display = 'block';
+                buildHoverTree(childrenDiv, node.children, level + 1);
+                nodeDiv.addEventListener('click', (e) => { e.stopPropagation(); childrenDiv.style.display = childrenDiv.style.display === 'none' ? 'block' : 'none'; });
+                wrapper.appendChild(nodeDiv);
+                wrapper.appendChild(childrenDiv);
+            } else {
+                nodeDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('#hoverTemplateTree .tree-node').forEach(el => el.classList.remove('active'));
+                    nodeDiv.classList.add('active');
+                    currentSelectedTemplate = node.content;
+                    const previewDiv = document.getElementById('hoverPreviewArea');
+                    document.getElementById('hoverPreviewContent').innerHTML = `<p><strong>检查方法：</strong> ${node.content.method}</p><p><strong>影像表现：</strong> ${node.content.finding}</p><p><strong>影像结论：</strong> ${node.content.conclusion}</p>`;
+                    previewDiv.style.display = 'block';
+                });
+                wrapper.appendChild(nodeDiv);
+            }
+            container.appendChild(wrapper);
+        });
+    }
+
+    function refreshHoverTree() {
+        const container = document.getElementById('hoverTemplateTree');
+        container.innerHTML = '';
+        const data = currentPanelTab === 'public' ? publicTemplates : privateTemplates;
+        buildHoverTree(container, data, 0);
+        document.getElementById('hoverPreviewArea').style.display = 'none';
+        currentSelectedTemplate = null;
+    }
+
+    // 悬浮面板显示/隐藏逻辑
+    const templateBtn = document.getElementById('templateBtnHover');
+    const hoverPanel = document.getElementById('templateHoverPanel');
+    let hoverTimeout = null;
+
+    function showPanel() { if (hoverTimeout) clearTimeout(hoverTimeout); hoverPanel.classList.add('show'); refreshHoverTree(); }
+    function hidePanelDelayed() { hoverTimeout = setTimeout(() => { if (!hoverPanel.matches(':hover') && !templateBtn.matches(':hover')) hoverPanel.classList.remove('show'); }, 200); }
+    templateBtn.addEventListener('mouseenter', showPanel);
+    templateBtn.addEventListener('mouseleave', hidePanelDelayed);
+    hoverPanel.addEventListener('mouseenter', () => { if (hoverTimeout) clearTimeout(hoverTimeout); });
+    hoverPanel.addEventListener('mouseleave', hidePanelDelayed);
+
+    // 绑定悬浮面板内的tab切换
+    document.querySelectorAll('.panel-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentPanelTab = tab.getAttribute('data-panel-tab');
+            refreshHoverTree();
+        });
+    });
+
+    // 追加 / 替换功能
+    document.getElementById('hoverAppendBtn').addEventListener('click', () => {
+        if (currentSelectedTemplate) {
+            document.getElementById('methodEditor').innerHTML += `<br><br>✦ ${currentSelectedTemplate.method}`;
+            document.getElementById('findingEditor').innerHTML += `<br><br>✦ ${currentSelectedTemplate.finding}`;
+            document.getElementById('conclusionEditor').innerHTML += `<br><br>✦ ${currentSelectedTemplate.conclusion}`;
+            hoverPanel.classList.remove('show');
+        } else alert('请先选择一个模板');
+    });
+    document.getElementById('hoverReplaceBtn').addEventListener('click', () => {
+        if (currentSelectedTemplate) {
+            document.getElementById('methodEditor').innerHTML = currentSelectedTemplate.method;
+            document.getElementById('findingEditor').innerHTML = currentSelectedTemplate.finding;
+            document.getElementById('conclusionEditor').innerHTML = currentSelectedTemplate.conclusion;
+            hoverPanel.classList.remove('show');
+        } else alert('请先选择一个模板');
+    });
+
+    // ========== 危急值逻辑 ==========
+    const criticalDrawer = document.getElementById('criticalDrawer');
+    document.getElementById('criticalValueBtn').onclick = () => criticalDrawer.classList.add('open');
+    document.getElementById('closeCriticalDrawer').onclick = () => criticalDrawer.classList.remove('open');
+    function addTimelineEntry(type, desc) { const now = new Date().toLocaleString(); const list = document.getElementById('timelineList'); const div = document.createElement('div'); div.className = 'timeline-item'; div.innerHTML = `<div style="color:#2563eb;">${now}</div><div><strong>危急值</strong><br>${type}<br>${desc || '无补充'}</div>`; list.prepend(div); }
+    document.getElementById('submitCriticalBtn').onclick = () => { const type = document.getElementById('criticalType').value; if(!type) { alert('请选择危急值分类'); return; } const desc = document.getElementById('criticalDesc').value; addTimelineEntry(type, desc); document.getElementById('criticalType').value = ''; document.getElementById('criticalDesc').value = ''; criticalDrawer.classList.remove('open'); alert('危急值已上报'); };
+
+    // ========== 业务交互 ==========
+    function toast(msg) { alert(msg); }
+    function saveToLocal() { const reportData = { method: document.getElementById('methodEditor').innerHTML, finding: document.getElementById('findingEditor').innerHTML, conclusion: document.getElementById('conclusionEditor').innerHTML, status: reportStatus, rejectReason }; localStorage.setItem('rad_report_draft', JSON.stringify(reportData)); toast('草稿已保存'); }
+    function loadFromLocal() { const data = localStorage.getItem('rad_report_draft'); if(data) { const parsed = JSON.parse(data); document.getElementById('methodEditor').innerHTML = parsed.method; document.getElementById('findingEditor').innerHTML = parsed.finding; document.getElementById('conclusionEditor').innerHTML = parsed.conclusion; reportStatus = parsed.status || 'writing'; rejectReason = parsed.rejectReason || ''; updateStatusBadge(); toast('已恢复上次草稿'); } }
+    document.getElementById('saveReportBtn').onclick = saveToLocal;
+    document.getElementById('completeReportBtn').onclick = () => { if(reportStatus === 'approved') toast('报告已通过，无法再完成'); else if(reportStatus !== 'pending') { reportStatus = 'pending'; updateStatusBadge(); toast('报告已完成，待审核'); saveToLocal(); } else toast('已是待审核状态'); };
+    document.getElementById('modifyReportBtn').onclick = () => { if(reportStatus === 'approved') toast('已通过的报告不可修改'); else if(reportStatus === 'pending') toast('待审核中不可直接修改'); else { reportStatus = 'writing'; updateStatusBadge(); toast('现在可以编辑报告'); } };
+    document.getElementById('submitAuditBtn').onclick = () => { if(reportStatus === 'pending') toast('报告已在审核队列'); else if(reportStatus === 'rejected') { reportStatus = 'pending'; updateStatusBadge(); toast('已重新提交审核'); saveToLocal(); } else toast('请先点击“完成报告”'); };
+    document.getElementById('approveBtn').onclick = () => { if(reportStatus === 'pending') { reportStatus = 'approved'; updateStatusBadge(); toast('审核通过，报告生效'); saveToLocal(); } else toast('仅待审核状态可通过'); };
+    document.getElementById('rejectBtn').onclick = () => { if(reportStatus === 'pending') { const reason = prompt('请输入驳回原因:', '影像描述需进一步明确'); if(reason) { rejectReason = reason; reportStatus = 'rejected'; updateStatusBadge(); toast('报告已驳回'); saveToLocal(); } } else toast('只能驳回待审核报告'); };
+    document.getElementById('opLogBtn').onclick = () => toast('操作日志: 2026-04-29 创建报告，多次编辑');
+    document.getElementById('printBtn').onclick = () => window.print();
+    window.onload = () => { loadFromLocal(); activeEditor = document.getElementById('methodEditor'); setEditable(reportStatus !== 'approved' && reportStatus !== 'pending'); };
+</script>
+</body>
+</html>

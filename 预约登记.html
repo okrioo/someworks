@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XX市区域影像系统 - 智能预约登记工作台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.95); }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+        .animate-pulse-ring { animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        
+        @keyframes slide-in-right {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide-in-right { animation: slide-in-right 0.3s ease-out; }
+        
+        .gradient-workspace {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .slot-available { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .slot-limited { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .slot-full { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        
+        /* Print styles */
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen overflow-hidden" x-data="registrationWorkspace()">
+
+    <!-- Top Navigation Bar -->
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shadow-sm z-30">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 gradient-workspace rounded-lg flex items-center justify-center">
+                    <i class="ph ph-x-ray text-white text-lg"></i>
+                </div>
+                <span class="font-bold text-slate-800">XX市区域影像系统</span>
+            </div>
+            <div class="h-6 w-px bg-slate-200"></div>
+            <!-- 院区选择器 -->
+            <div class="relative">
+                <select x-model="selectedHospital" class="pl-3 pr-8 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="east">🏥 东院区</option>
+                    <option value="west">🏥 西院区</option>
+                    <option value="south">🏥 南院区</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- 快速扫码入口 -->
+            <button @click="openScanner()" class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-medium hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg shadow-emerald-500/20">
+                <i class="ph ph-qr-code text-lg"></i>
+                <span>扫码登记</span>
+            </button>
+            
+            <div class="h-6 w-px bg-slate-200"></div>
+            
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
+                <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="text-sm text-slate-600">Worklist服务正常</span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <span class="text-sm font-bold text-indigo-600">张</span>
+                </div>
+                <span class="text-sm text-slate-600">张XX</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex h-[calc(100vh-56px)]">
+        
+        <!-- Left Panel: 待检列表 -->
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col">
+            <!-- 搜索和筛选 -->
+            <div class="p-3 border-b border-slate-100 space-y-2">
+                <div class="relative">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" x-model="searchQuery" placeholder="搜索患者姓名/病历号/检查号" 
+                           class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex gap-2">
+                    <select x-model="statusFilter" class="flex-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs">
+                        <option value="all">全部状态</option>
+                        <option value="pending">待登记</option>
+                        <option value="registered">已登记</option>
+                        <option value="arrived">已到检</option>
+                    </select>
+                    <select x-model="deviceFilter" class="flex-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs">
+                        <option value="all">全部设备</option>
+                        <option value="ct">CT</option>
+                        <option value="mri">MRI</option>
+                        <option value="us">超声</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="px-3 py-2 grid grid-cols-3 gap-2 border-b border-slate-100">
+                <div class="bg-amber-50 rounded-lg p-2 text-center">
+                    <div class="text-lg font-bold text-amber-600" x-text="stats.pending"></div>
+                    <div class="text-xs text-amber-700">待登记</div>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-2 text-center">
+                    <div class="text-lg font-bold text-blue-600" x-text="stats.registered"></div>
+                    <div class="text-xs text-blue-700">今日已约</div>
+                </div>
+                <div class="bg-emerald-50 rounded-lg p-2 text-center">
+                    <div class="text-lg font-bold text-emerald-600" x-text="stats.arrived"></div>
+                    <div class="text-xs text-emerald-700">已到检</div>
+                </div>
+            </div>
+
+            <!-- 患者列表 -->
+            <div class="flex-1 overflow-y-auto">
+                <template x-for="patient in filteredPatients" :key="patient.id">
+                    <div @click="selectPatient(patient)" 
+                         :class="{'bg-indigo-50 border-l-4 border-indigo-500': selectedPatient?.id === patient.id, 'hover:bg-slate-50 border-l-4 border-transparent': selectedPatient?.id !== patient.id}"
+                         class="p-3 border-b border-slate-100 cursor-pointer transition-all">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                                     :class="{
+                                         'bg-red-500': patient.patientType === 'emergency',
+                                         'bg-amber-500': patient.patientType === 'vip',
+                                         'bg-blue-500': patient.patientType === 'normal'
+                                     }">
+                                    <span x-text="patient.patientName.charAt(0)"></span>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="font-medium text-slate-800" x-text="patient.patientName"></span>
+                                        <span x-show="patient.patientType === 'emergency'" class="px-1 py-0.5 bg-red-100 text-red-700 text-xs rounded">急诊</span>
+                                        <span x-show="patient.patientType === 'vip'" class="px-1 py-0.5 bg-amber-100 text-amber-700 text-xs rounded">VIP</span>
+                                    </div>
+                                    <div class="text-xs text-slate-500" x-text="patient.patientNo + ' | ' + patient.gender + ' ' + patient.age"></div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400" x-text="patient.appointmentTime ? patient.appointmentTime.split(' ')[1] : '未预约'"></div>
+                        </div>
+                        <div class="mt-2 flex items-center justify-between">
+                            <div class="flex items-center gap-1">
+                                <i class="ph ph-stethoscope text-slate-400 text-xs"></i>
+                                <span class="text-xs text-slate-600" x-text="patient.examItems.length + ' 项检查'"></span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-xs"
+                                  :class="{
+                                      'bg-slate-100 text-slate-600': patient.status === 'pending',
+                                      'bg-blue-100 text-blue-700': patient.status === 'registered',
+                                      'bg-emerald-100 text-emerald-700': patient.status === 'arrived'
+                                  }"
+                                  x-text="{pending: '待登记', registered: '已登记', arrived: '已到检'}[patient.status]">
+                            </span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- 底部操作 -->
+            <div class="p-3 border-t border-slate-200 bg-slate-50">
+                <button @click="createNewRegistration()" class="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                    <i class="ph ph-plus-circle text-lg"></i>
+                    手动新增登记
+                </button>
+            </div>
+        </aside>
+
+        <!-- Right Panel: 登记工作台 -->
+        <main class="flex-1 bg-slate-100 overflow-hidden flex flex-col">
+            
+            <!-- Empty State -->
+            <div x-show="!selectedPatient && !isCreatingNew" class="flex-1 flex items-center justify-center">
+                <div class="text-center">
+                    <div class="w-24 h-24 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="ph ph-stethoscope text-slate-400 text-4xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-slate-700 mb-2">选择患者或开始新登记</h3>
+                    <p class="text-sm text-slate-500 mb-4">从左侧列表选择患者，或点击"手动新增登记"开始</p>
+                    <div class="flex items-center justify-center gap-3">
+                        <button @click="openScanner()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm hover:bg-emerald-600 transition-colors flex items-center gap-2">
+                            <i class="ph ph-qr-code"></i>
+                            扫码快速登记
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registration Workspace -->
+            <div x-show="selectedPatient || isCreatingNew" class="flex-1 flex flex-col h-full">
+                
+                <!-- 顶部工具栏 -->
+                <div class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-lg font-bold text-slate-800" x-text="isCreatingNew ? '新增预约登记' : '预约登记详情'"></h2>
+                        <span x-show="selectedPatient?.status === 'arrived'" class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full flex items-center gap-1">
+                            <i class="ph ph-check-circle"></i>
+                            已到检
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="saveRegistration()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                            <i class="ph ph-floppy-disk"></i>
+                            保存登记
+                        </button>
+                        <button x-show="selectedPatient?.status === 'registered'" @click="markAsArrived()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors flex items-center gap-2">
+                            <i class="ph ph-sign-in"></i>
+                            标记到检
+                        </button>
+                        <button @click="sendToWorklist()" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-2">
+                            <i class="ph ph-desktop-tower"></i>
+                            下发设备
+                        </button>
+                        <button @click="printTicket()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors flex items-center gap-2">
+                            <i class="ph ph-printer"></i>
+                            打印
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 工作台内容区 -->
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div class="max-w-6xl mx-auto space-y-4">
+                        
+                        <!-- 患者基本信息卡片 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 flex items-center justify-between">
+                                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-user text-indigo-600"></i>
+                                    患者基本信息
+                                </h3>
+                                <button x-show="!isCreatingNew" @click="fetchFromHIS()" class="text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                                    <i class="ph ph-arrows-clockwise"></i>
+                                    从HIS刷新
+                                </button>
+                            </div>
+                            <div class="p-4">
+                                <div class="grid grid-cols-6 gap-4">
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">患者姓名 <span class="text-red-500">*</span></label>
+                                        <input type="text" x-model="formData.patientName" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">性别 <span class="text-red-500">*</span></label>
+                                        <select x-model="formData.gender" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value="">请选择</option>
+                                            <option value="男">男</option>
+                                            <option value="女">女</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">年龄 <span class="text-red-500">*</span></label>
+                                        <div class="flex">
+                                            <input type="number" x-model="formData.age" class="flex-1 px-3 py-2 border border-slate-300 rounded-l-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <span class="px-2 py-2 bg-slate-100 border border-l-0 border-slate-300 rounded-r-lg text-sm text-slate-600">岁</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">身份证号</label>
+                                        <input type="text" x-model="formData.idCard" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">病历号 <span class="text-red-500">*</span></label>
+                                        <input type="text" x-model="formData.patientNo" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">联系电话</label>
+                                        <input type="text" x-model="formData.phone" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">患者来源</label>
+                                        <select x-model="formData.patientSource" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <option value="outpatient">门诊</option>
+                                            <option value="inpatient">住院</option>
+                                            <option value="emergency">急诊</option>
+                                            <option value="physical">体检</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 检查项目区域 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100 flex items-center justify-between">
+                                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-stethoscope text-blue-600"></i>
+                                    检查项目清单
+                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full" x-text="formData.examItems.length + ' 项'"></span>
+                                </h3>
+                                <button @click="addExamItem()" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-1">
+                                    <i class="ph ph-plus"></i>
+                                    添加项目
+                                </button>
+                            </div>
+                            
+                            <div class="divide-y divide-slate-100">
+                                <template x-for="(item, index) in formData.examItems" :key="index">
+                                    <div class="p-4 hover:bg-slate-50 transition-colors">
+                                        <div class="flex items-start gap-4">
+                                            <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <span class="text-sm font-bold text-blue-600" x-text="index + 1"></span>
+                                            </div>
+                                            <div class="flex-1 grid grid-cols-12 gap-3">
+                                                <!-- 检查类型 -->
+                                                <div class="col-span-2">
+                                                    <label class="block text-xs text-slate-500 mb-1">检查类型</label>
+                                                    <select x-model="item.examType" @change="updateExamType(item)" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                                        <option value="">请选择</option>
+                                                        <option value="CT">CT</option>
+                                                        <option value="MRI">MRI</option>
+                                                        <option value="DR">DR</option>
+                                                        <option value="US">超声</option>
+                                                        <option value="NM">核医学</option>
+                                                    </select>
+                                                </div>
+                                                <!-- 检查项目 -->
+                                                <div class="col-span-3">
+                                                    <label class="block text-xs text-slate-500 mb-1">检查项目</label>
+                                                    <select x-model="item.examItem" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                                        <option value="">请选择</option>
+                                                        <template x-for="option in getExamOptions(item.examType)" :key="option">
+                                                            <option :value="option" x-text="option"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                                <!-- 检查部位 -->
+                                                <div class="col-span-2">
+                                                    <label class="block text-xs text-slate-500 mb-1">检查部位</label>
+                                                    <input type="text" x-model="item.examPart" class="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                                </div>
+                                                <!-- 检查状态/操作 -->
+                                                <div class="col-span-5 flex items-end">
+                                                    <div class="flex items-center gap-2">
+                                                        <span x-show="item.appointmentTime" class="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium flex items-center gap-1">
+                                                            <i class="ph ph-check-circle"></i>
+                                                            <span x-text="item.appointmentTime"></span>
+                                                        </span>
+                                                        <button x-show="item.appointmentTime" @click="clearAppointmentTime(item)" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="清除预约时间">
+                                                            <i class="ph ph-x-circle text-lg"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 号源日历平铺展示 -->
+                                                <div class="col-span-12 mt-3">
+                                                    <div class="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                                                        <!-- 日期选择器 -->
+                                                        <div class="flex items-center gap-4 p-3 border-b border-slate-200 bg-white">
+                                                            <button @click="changeDateOffset(item, -1)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500">
+                                                                <i class="ph ph-caret-left text-lg"></i>
+                                                            </button>
+                                                            <div class="flex gap-2 overflow-x-auto pb-1">
+                                                                <template x-for="date in getDateRange(item)" :key="date.date">
+                                                                    <button @click="selectDate(item, date)"
+                                                                            :class="{
+                                                                                'bg-blue-600 text-white shadow-lg shadow-blue-500/30': item.selectedDate === date.date,
+                                                                                'bg-white text-slate-700 hover:bg-blue-50 border border-slate-200': item.selectedDate !== date.date,
+                                                                                'ring-2 ring-blue-500 ring-offset-1': date.isToday
+                                                                            }"
+                                                                            class="flex-shrink-0 px-4 py-2 rounded-xl text-center min-w-[80px] transition-all">
+                                                                        <div class="text-xs opacity-80" x-text="date.weekday"></div>
+                                                                        <div class="text-sm font-bold" x-text="date.day"></div>
+                                                                        <div class="text-xs mt-1" :class="item.selectedDate === date.date ? 'text-blue-100' : 'text-slate-500'" x-text="date.totalRemaining + '个号'"></div>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                            <button @click="changeDateOffset(item, 1)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500">
+                                                                <i class="ph ph-caret-right text-lg"></i>
+                                                            </button>
+                                                        </div>
+
+                                                        <!-- 时段号源平铺 -->
+                                                        <div x-show="item.selectedDate" class="p-4">
+                                                            <div class="flex items-center justify-between mb-3">
+                                                                <h4 class="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                                                    <i class="ph ph-clock text-blue-500"></i>
+                                                                    <span x-text="formatSelectedDate(item.selectedDate) + ' 可预约时段'"></span>
+                                                                </h4>
+                                                                <div class="flex items-center gap-3 text-xs">
+                                                                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-emerald-500"></span>充足</span>
+                                                                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-500"></span>紧张</span>
+                                                                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-slate-300"></span>已满</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="grid grid-cols-6 gap-2">
+                                                                <template x-for="slot in getTimeSlots(item)" :key="slot.time">
+                                                                    <button @click="selectTimeSlot(item, slot)"
+                                                                            :disabled="slot.remaining === 0"
+                                                                            :class="{
+                                                                                'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105': item.selectedTime === slot.time && slot.remaining > 0,
+                                                                                'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-2 border-emerald-300': slot.remaining > 5 && item.selectedTime !== slot.time,
+                                                                                'bg-amber-100 text-amber-700 hover:bg-amber-200 border-2 border-amber-300': slot.remaining > 0 && slot.remaining <= 5 && item.selectedTime !== slot.time,
+                                                                                'bg-slate-100 text-slate-400 cursor-not-allowed border-2 border-slate-200': slot.remaining === 0
+                                                                            }"
+                                                                            class="relative p-3 rounded-xl text-center transition-all">
+                                                                        <div class="text-sm font-bold" x-text="slot.time"></div>
+                                                                        <div class="text-xs mt-1" :class="item.selectedTime === slot.time ? 'text-white/80' : (slot.remaining === 0 ? 'text-slate-400' : 'opacity-70')" x-text="slot.remaining > 0 ? '余' + slot.remaining + '个' : '已满'"></div>
+                                                                        <div x-show="item.selectedTime === slot.time" class="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                                                                            <i class="ph ph-check text-white text-xs"></i>
+                                                                        </div>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- 设备选择（条件显示：选择日期和时段后，如有多设备可选则显示） -->
+                                                        <div x-show="item.selectedDate && item.selectedTime" class="px-4 py-3 border-t border-slate-200 bg-blue-50/50">
+                                                            <div class="flex items-center gap-4">
+                                                                <div class="flex items-center gap-2 text-sm text-slate-700">
+                                                                    <i class="ph ph-desktop-tower text-blue-500"></i>
+                                                                    <span class="font-medium">选择检查设备</span>
+                                                                </div>
+                                                                <div class="flex-1 flex items-center gap-3 flex-wrap">
+                                                                    <!-- 自动分配选项（默认） -->
+                                                                    <label class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-blue-400 transition-colors"
+                                                                           :class="{'border-blue-500 ring-2 ring-blue-500/20': !item.device || item.device === 'auto'}">
+                                                                        <input type="radio" x-model="item.device" value="auto" class="w-4 h-4 text-blue-600">
+                                                                        <span class="text-sm">系统自动分配</span>
+                                                                        <span class="text-xs text-slate-400">推荐</span>
+                                                                    </label>
+                                                                    <!-- 具体设备选项 -->
+                                                                    <template x-for="device in getAvailableDevices(item.examType)" :key="device.id">
+                                                                        <label class="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-blue-400 transition-colors"
+                                                                               :class="{'border-blue-500 ring-2 ring-blue-500/20': item.device === device.id}">
+                                                                            <input type="radio" x-model="item.device" :value="device.id" class="w-4 h-4 text-blue-600">
+                                                                            <span class="text-sm" x-text="device.name"></span>
+                                                                            <span class="text-xs px-1.5 py-0.5 rounded"
+                                                                                  :class="device.hospital === selectedHospital ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                                                                                  x-text="device.location + (device.hospital !== selectedHospital ? ' (跨院区)' : '')"></span>
+                                                                        </label>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- 未选择日期提示 -->
+                                                        <div x-show="!item.selectedDate" class="p-8 text-center">
+                                                            <div class="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                                <i class="ph ph-calendar-blank text-slate-400 text-xl"></i>
+                                                            </div>
+                                                            <p class="text-sm text-slate-500">请选择预约日期</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button @click="removeExamItem(index)" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                <i class="ph ph-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <!-- 添加项目按钮（空状态时显示） -->
+                            <div x-show="formData.examItems.length === 0" class="p-8 text-center">
+                                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="ph ph-stethoscope text-slate-400 text-2xl"></i>
+                                </div>
+                                <p class="text-slate-500 mb-3">暂无检查项目</p>
+                                <button @click="addExamItem()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+                                    添加第一个项目
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 临床信息 -->
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+                                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-clipboard-text text-emerald-600"></i>
+                                    临床信息
+                                </h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">申请科室</label>
+                                        <select x-model="formData.applyDept" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+                                            <option value="">请选择</option>
+                                            <option value="internal">内科</option>
+                                            <option value="surgery">外科</option>
+                                            <option value="orthopedics">骨科</option>
+                                            <option value="neurology">神经内科</option>
+                                            <option value="cardiology">心内科</option>
+                                            <option value="respiratory">呼吸科</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">申请医生</label>
+                                        <input type="text" x-model="formData.applyDoctor" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">临床诊断 / 检查目的</label>
+                                        <textarea x-model="formData.diagnosis" rows="2" placeholder="请输入临床诊断或检查目的，如：怀疑肺炎、脑出血待排等" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"></textarea>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-500 mb-1">患者主诉 / 病史</label>
+                                        <textarea x-model="formData.medicalHistory" rows="2" placeholder="请输入患者主诉、既往病史、过敏史等" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 护士到检信息（仅在已到检状态下显示或可编辑） -->
+                        <div x-show="selectedPatient?.status === 'arrived' || showNursingSection" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 bg-gradient-to-r from-rose-50 to-pink-50 border-b border-rose-100 flex items-center justify-between">
+                                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                                    <i class="ph ph-heartbeat text-rose-600"></i>
+                                    护士到检工作站
+                                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded-full">到检后录入</span>
+                                </h3>
+                                <button @click="showNursingSection = !showNursingSection" class="text-sm text-rose-600 hover:text-rose-700">
+                                    <span x-text="showNursingSection ? '收起' : '展开'"></span>
+                                </button>
+                            </div>
+                            <div x-show="showNursingSection" class="p-4">
+                                <div class="grid grid-cols-12 gap-4">
+                                    <!-- 生命体征 -->
+                                    <div class="col-span-12">
+                                        <h4 class="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                            <i class="ph ph-activity text-rose-500"></i>
+                                            生命体征
+                                        </h4>
+                                        <div class="grid grid-cols-4 gap-3">
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">收缩压 (mmHg)</label>
+                                                <input type="number" x-model="nursingData.systolicBP" placeholder="120" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">舒张压 (mmHg)</label>
+                                                <input type="number" x-model="nursingData.diastolicBP" placeholder="80" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">心率 (次/分)</label>
+                                                <input type="number" x-model="nursingData.heartRate" placeholder="75" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">体温 (°C)</label>
+                                                <input type="number" step="0.1" x-model="nursingData.temperature" placeholder="36.5" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 造影剂信息（增强扫描） -->
+                                    <div class="col-span-12 mt-4 pt-4 border-t border-slate-100">
+                                        <h4 class="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                            <i class="ph ph-drop text-blue-500"></i>
+                                            造影剂管理（增强扫描）
+                                        </h4>
+                                        <div class="grid grid-cols-12 gap-3">
+                                            <div class="col-span-3">
+                                                <label class="block text-xs text-slate-500 mb-1">造影剂类型</label>
+                                                <select x-model="nursingData.contrastType" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                                    <option value="">未使用</option>
+                                                    <option value="iodine">碘造影剂</option>
+                                                    <option value="gadolinium">钆造影剂</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-span-3">
+                                                <label class="block text-xs text-slate-500 mb-1">造影剂剂量 (ml)</label>
+                                                <input type="number" x-model="nursingData.contrastDose" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div class="col-span-3">
+                                                <label class="block text-xs text-slate-500 mb-1">注射开始时间</label>
+                                                <input type="datetime-local" x-model="nursingData.injectionStartTime" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div class="col-span-3">
+                                                <label class="block text-xs text-slate-500 mb-1">注射结束时间</label>
+                                                <input type="datetime-local" x-model="nursingData.injectionEndTime" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div class="col-span-12">
+                                                <label class="block text-xs text-slate-500 mb-1">注射部位/静脉通路</label>
+                                                <input type="text" x-model="nursingData.injectionSite" placeholder="如：右上肢贵要静脉，20G留置针" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 不良反应监测 -->
+                                    <div class="col-span-12 mt-4 pt-4 border-t border-slate-100">
+                                        <h4 class="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                            <i class="ph ph-warning-circle text-amber-500"></i>
+                                            不良反应监测
+                                        </h4>
+                                        <div class="space-y-3">
+                                            <div class="flex items-center gap-4">
+                                                <label class="flex items-center gap-2">
+                                                    <input type="checkbox" x-model="nursingData.hasAdverseReaction" class="w-4 h-4 text-rose-600 rounded border-slate-300">
+                                                    <span class="text-sm text-slate-700">出现不良反应</span>
+                                                </label>
+                                            </div>
+                                            <div x-show="nursingData.hasAdverseReaction" class="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="block text-xs text-slate-500 mb-1">反应类型</label>
+                                                    <select x-model="nursingData.reactionType" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                                        <option value="">请选择</option>
+                                                        <option value="mild">轻度（恶心、呕吐、荨麻疹）</option>
+                                                        <option value="moderate">中度（支气管痉挛、面部水肿）</option>
+                                                        <option value="severe">重度（休克、心跳骤停）</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs text-slate-500 mb-1">发生时间</label>
+                                                    <input type="datetime-local" x-model="nursingData.reactionTime" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                                </div>
+                                                <div class="col-span-2">
+                                                    <label class="block text-xs text-slate-500 mb-1">处理措施及结果</label>
+                                                    <textarea x-model="nursingData.reactionTreatment" rows="2" placeholder="记录处理措施及患者转归情况" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 护士签名 -->
+                                    <div class="col-span-12 mt-4 pt-4 border-t border-slate-100">
+                                        <div class="grid grid-cols-3 gap-3">
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">到检时间</label>
+                                                <input type="datetime-local" x-model="nursingData.arrivalTime" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">责任护士</label>
+                                                <input type="text" x-model="nursingData.nurseName" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">护士工号</label>
+                                                <input type="text" x-model="nursingData.nurseId" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 扫码弹窗 -->
+    <div x-show="showScanner" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-2xl w-96 overflow-hidden">
+            <div class="p-6 text-center">
+                <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="ph ph-qr-code text-indigo-600 text-3xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2">扫码登记</h3>
+                <p class="text-sm text-slate-500 mb-4">请扫描患者就诊卡或检查申请单条码</p>
+                <input type="text" x-model="scanCode" @keyup.enter="processScan()" placeholder="请扫码或手动输入..." class="w-full px-4 py-3 border border-slate-300 rounded-lg text-center text-lg font-mono tracking-wider focus:ring-2 focus:ring-indigo-500" autofocus>
+                <div class="mt-4 flex gap-2">
+                    <button @click="showScanner = false" class="flex-1 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50">取消</button>
+                    <button @click="processScan()" class="flex-1 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function registrationWorkspace() {
+            return {
+                // 状态
+                selectedHospital: 'east',
+                searchQuery: '',
+                statusFilter: 'all',
+                deviceFilter: 'all',
+                selectedPatient: null,
+                isCreatingNew: false,
+                showScanner: false,
+                scanCode: '',
+                showNursingSection: false,
+
+                // 统计
+                stats: {
+                    pending: 12,
+                    registered: 28,
+                    arrived: 15
+                },
+
+                // 表单数据
+                formData: {
+                    patientName: '',
+                    gender: '',
+                    age: '',
+                    idCard: '',
+                    patientNo: '',
+                    phone: '',
+                    patientSource: 'outpatient',
+                    applyDept: '',
+                    applyDoctor: '',
+                    diagnosis: '',
+                    medicalHistory: '',
+                    examItems: []
+                },
+
+                // 护士到检数据
+                nursingData: {
+                    systolicBP: '',
+                    diastolicBP: '',
+                    heartRate: '',
+                    temperature: '',
+                    contrastType: '',
+                    contrastDose: '',
+                    injectionStartTime: '',
+                    injectionEndTime: '',
+                    injectionSite: '',
+                    hasAdverseReaction: false,
+                    reactionType: '',
+                    reactionTime: '',
+                    reactionTreatment: '',
+                    arrivalTime: '',
+                    nurseName: '',
+                    nurseId: ''
+                },
+
+                // 设备列表（支持多院区）
+                devices: [
+                    // 东院区设备
+                    { id: 'ct1', name: 'CT-1号机', type: 'CT', location: '1楼A区', status: 'available', hospital: 'east' },
+                    { id: 'ct2', name: 'CT-2号机', type: 'CT', location: '1楼B区', status: 'available', hospital: 'east' },
+                    { id: 'mri1', name: 'MRI-1号机', type: 'MRI', location: '2楼MRI室', status: 'available', hospital: 'east' },
+                    { id: 'dr1', name: 'DR-1号机', type: 'DR', location: '1楼DR室', status: 'available', hospital: 'east' },
+                    { id: 'us1', name: '超声-1号机', type: 'US', location: '3楼超声科', status: 'available', hospital: 'east' },
+                    // 西院区设备
+                    { id: 'ct3', name: 'CT-3号机', type: 'CT', location: '1楼CT室', status: 'available', hospital: 'west' },
+                    { id: 'mri2', name: 'MRI-2号机', type: 'MRI', location: '2楼MRI室', status: 'available', hospital: 'west' },
+                    { id: 'dr2', name: 'DR-2号机', type: 'DR', location: '1楼DR室', status: 'available', hospital: 'west' },
+                    // 南院区设备
+                    { id: 'ct4', name: 'CT-4号机', type: 'CT', location: '1楼影像科', status: 'available', hospital: 'south' },
+                    { id: 'mri3', name: 'MRI-3号机', type: 'MRI', location: '1楼影像科', status: 'available', hospital: 'south' }
+                ],
+
+                // 院区配置
+                hospitalConfig: {
+                    east: { name: '东院区', color: 'blue' },
+                    west: { name: '西院区', color: 'purple' },
+                    south: { name: '南院区', color: 'orange' }
+                },
+
+                // 号源数据
+                deviceSlots: {
+                    'ct1': [
+                        { time: '08:00', remaining: 3 },
+                        { time: '09:00', remaining: 0 },
+                        { time: '10:00', remaining: 5 },
+                        { time: '14:00', remaining: 8 }
+                    ],
+                    'ct2': [
+                        { time: '08:00', remaining: 0 },
+                        { time: '09:00', remaining: 2 },
+                        { time: '10:00', remaining: 4 },
+                        { time: '14:00', remaining: 6 }
+                    ],
+                    'mri1': [
+                        { time: '08:30', remaining: 1 },
+                        { time: '10:00', remaining: 3 },
+                        { time: '14:30', remaining: 2 }
+                    ]
+                },
+
+                // 患者列表
+                patients: [
+                    {
+                        id: 1,
+                        patientNo: 'P20240327001',
+                        patientName: '王XX',
+                        gender: '男',
+                        age: '45岁',
+                        patientType: 'normal',
+                        patientSource: 'outpatient',
+                        status: 'pending',
+                        examItems: [{ examItem: '胸部CT平扫', examType: 'CT' }],
+                        appointmentTime: null
+                    },
+                    {
+                        id: 2,
+                        patientNo: 'P20240327002',
+                        patientName: '李XX',
+                        gender: '女',
+                        age: '62岁',
+                        patientType: 'emergency',
+                        patientSource: 'emergency',
+                        status: 'registered',
+                        examItems: [{ examItem: '头颅MRI', examType: 'MRI' }],
+                        appointmentTime: '2024-03-27 09:00'
+                    },
+                    {
+                        id: 3,
+                        patientNo: 'P20240327003',
+                        patientName: '张XX',
+                        gender: '男',
+                        age: '58岁',
+                        patientType: 'vip',
+                        patientSource: 'inpatient',
+                        status: 'arrived',
+                        examItems: [
+                            { examItem: '胸部CT平扫', examType: 'CT' },
+                            { examItem: '腹部超声', examType: 'US' }
+                        ],
+                        appointmentTime: '2024-03-27 10:30'
+                    }
+                ],
+
+                // 计算属性
+                get filteredPatients() {
+                    let result = this.patients;
+                    if (this.searchQuery) {
+                        const query = this.searchQuery.toLowerCase();
+                        result = result.filter(p => 
+                            p.patientName.includes(query) || 
+                            p.patientNo.includes(query)
+                        );
+                    }
+                    if (this.statusFilter !== 'all') {
+                        result = result.filter(p => p.status === this.statusFilter);
+                    }
+                    return result;
+                },
+
+                // 方法
+                selectPatient(patient) {
+                    this.selectedPatient = patient;
+                    this.isCreatingNew = false;
+                    // 填充表单
+                    this.formData = {
+                        patientName: patient.patientName,
+                        gender: patient.gender,
+                        age: parseInt(patient.age),
+                        patientNo: patient.patientNo,
+                        patientSource: patient.patientSource,
+                        examItems: patient.examItems.map(item => ({
+                            ...item,
+                            device: '',
+                            appointmentTime: patient.appointmentTime || '',
+                            selectedSlot: ''
+                        }))
+                    };
+                },
+
+                createNewRegistration() {
+                    this.isCreatingNew = true;
+                    this.selectedPatient = null;
+                    this.formData = {
+                        patientName: '',
+                        gender: '',
+                        age: '',
+                        idCard: '',
+                        patientNo: '',
+                        phone: '',
+                        patientSource: 'outpatient',
+                        applyDept: '',
+                        applyDoctor: '',
+                        diagnosis: '',
+                        medicalHistory: '',
+                        examItems: []
+                    };
+                },
+
+                addExamItem() {
+                    this.formData.examItems.push({
+                        examType: '',
+                        examItem: '',
+                        examPart: '',
+                        device: '',
+                        appointmentTime: '',
+                        selectedSlot: ''
+                    });
+                },
+
+                removeExamItem(index) {
+                    this.formData.examItems.splice(index, 1);
+                },
+
+                updateExamType(item) {
+                    item.examItem = '';
+                    // 重置日期、时间和设备选择
+                    item.selectedDate = null;
+                    item.selectedTime = null;
+                    item.appointmentTime = null;
+                    item.device = '';
+                    item.dateOffset = 0;
+                },
+
+                getExamOptions(type) {
+                    const options = {
+                        'CT': ['胸部CT平扫', '胸部CT增强', '头颅CT', '腰椎CT', '腹部CT'],
+                        'MRI': ['头颅MRI', '颈椎MRI', '腰椎MRI', '膝关节MRI', '腹部MRI'],
+                        'DR': ['DR胸片', 'DR骨盆', 'DR四肢', 'DR脊柱'],
+                        'US': ['腹部超声', '心脏超声', '甲状腺超声', '乳腺超声'],
+                        'NM': ['骨扫描', '心肌灌注', '甲状腺扫描']
+                    };
+                    return options[type] || [];
+                },
+
+                // 获取可用设备（支持院区过滤）
+                getAvailableDevices(type, preferredTime = null) {
+                    if (!type) return [];
+
+                    // 优先显示当前院区设备，同时显示其他院区可用设备
+                    const currentHospital = this.selectedHospital;
+
+                    return this.devices
+                        .filter(d => d.type === type && d.status === 'available')
+                        .sort((a, b) => {
+                            // 当前院区设备排在前面
+                            if (a.hospital === currentHospital && b.hospital !== currentHospital) return -1;
+                            if (a.hospital !== currentHospital && b.hospital === currentHospital) return 1;
+                            return 0;
+                        });
+                },
+
+                // 获取院区名称
+                getHospitalName(hospitalCode) {
+                    return this.hospitalConfig[hospitalCode]?.name || hospitalCode;
+                },
+
+                getDeviceSlots(deviceId) {
+                    return this.deviceSlots[deviceId] || [];
+                },
+
+                selectSlot(item, slot) {
+                    if (slot.remaining === 0) return;
+                    item.selectedSlot = slot.time;
+                    item.appointmentTime = slot.time;
+                },
+
+                // 号源日历方法 - 设备选择改为条件显示后，此方法用于初始化日期选择
+                initDateSelection(item) {
+                    // 重置日期选择
+                    item.selectedDate = null;
+                    item.selectedTime = null;
+                    item.appointmentTime = null;
+                    item.device = '';
+                    item.dateOffset = 0;
+                },
+
+                getDateRange(item) {
+                    const dates = [];
+                    const offset = item.dateOffset || 0;
+                    const today = new Date();
+                    today.setDate(today.getDate() + offset);
+
+                    for (let i = 0; i < 7; i++) {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() + i);
+                        const dateStr = date.toISOString().split('T')[0];
+
+                        // 计算该日期下所有可用时段的总剩余号源
+                        const totalRemaining = this.calculateDayTotalRemaining(item.examType, dateStr);
+
+                        dates.push({
+                            date: dateStr,
+                            day: date.getDate() + '日',
+                            weekday: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()],
+                            isToday: i === 0 && offset === 0,
+                            totalRemaining: totalRemaining
+                        });
+                    }
+                    return dates;
+                },
+
+                // 计算某天所有可预约时段的剩余号源总和
+                calculateDayTotalRemaining(examType, dateStr) {
+                    if (!examType || !dateStr) return 0;
+
+                    // 获取该检查类型下的所有可用设备
+                    const availableDevices = this.devices.filter(d => d.type === examType && d.status === 'available');
+                    if (availableDevices.length === 0) return 0;
+
+                    // 收集所有时段（去重）
+                    const allTimeSlots = new Set();
+                    availableDevices.forEach(device => {
+                        const slots = this.deviceSlots[device.id] || [];
+                        slots.forEach(slot => allTimeSlots.add(slot.time));
+                    });
+
+                    // 计算每个时段的总剩余号源，并求和
+                    const timeArray = Array.from(allTimeSlots).sort();
+                    const dateSeed = new Date(dateStr).getDate();
+
+                    let totalRemaining = 0;
+                    timeArray.forEach(time => {
+                        let slotTotal = 0;
+                        availableDevices.forEach(device => {
+                            const slots = this.deviceSlots[device.id] || [];
+                            const slot = slots.find(s => s.time === time);
+                            if (slot) {
+                                // 根据日期生成动态余号数（模拟不同日期的号源变化）
+                                slotTotal += Math.max(0, slot.remaining + (dateSeed % 3 - 1));
+                            }
+                        });
+                        totalRemaining += slotTotal;
+                    });
+
+                    return totalRemaining;
+                },
+
+                // 保留此方法用于兼容（计算单个设备的号源）
+                calculateDayRemaining(deviceId, date) {
+                    // 模拟计算某设备某天的总剩余号源
+                    if (!deviceId) return 0;
+                    const slots = this.deviceSlots[deviceId] || [];
+                    return slots.reduce((sum, slot) => sum + slot.remaining, 0);
+                },
+
+                changeDateOffset(item, delta) {
+                    item.dateOffset = (item.dateOffset || 0) + delta * 7;
+                    // 限制不能选择过去日期
+                    if (item.dateOffset < 0) item.dateOffset = 0;
+                },
+
+                selectDate(item, date) {
+                    item.selectedDate = date.date;
+                    item.selectedTime = null;
+                    item.device = ''; // 清除设备选择，需要重新选择
+                },
+
+                formatSelectedDate(dateStr) {
+                    if (!dateStr) return '';
+                    const date = new Date(dateStr);
+                    const today = new Date();
+                    const isToday = date.toDateString() === today.toDateString();
+                    return isToday ? '今天' : `${date.getMonth() + 1}月${date.getDate()}日`;
+                },
+
+                getTimeSlots(item) {
+                    if (!item.selectedDate) return [];
+
+                    // 获取该检查类型下所有可用设备的时段，合并显示
+                    const availableDevices = this.getAvailableDevices(item.examType);
+                    if (availableDevices.length === 0) return [];
+
+                    // 收集所有时段（去重）
+                    const allTimeSlots = new Set();
+                    availableDevices.forEach(device => {
+                        const slots = this.deviceSlots[device.id] || [];
+                        slots.forEach(slot => allTimeSlots.add(slot.time));
+                    });
+
+                    // 计算每个时段的总剩余号源（跨所有设备）
+                    const timeArray = Array.from(allTimeSlots).sort();
+                    const dateSeed = new Date(item.selectedDate).getDate();
+
+                    return timeArray.map(time => {
+                        let totalRemaining = 0;
+                        availableDevices.forEach(device => {
+                            const slots = this.deviceSlots[device.id] || [];
+                            const slot = slots.find(s => s.time === time);
+                            if (slot) {
+                                totalRemaining += Math.max(0, slot.remaining + (dateSeed % 3 - 1));
+                            }
+                        });
+                        return {
+                            time: time,
+                            remaining: totalRemaining
+                        };
+                    });
+                },
+
+                selectTimeSlot(item, slot) {
+                    if (slot.remaining === 0) return;
+                    item.selectedTime = slot.time;
+                    item.appointmentTime = `${item.selectedDate} ${slot.time}`;
+                },
+
+                clearAppointmentTime(item) {
+                    item.appointmentTime = null;
+                    item.selectedTime = null;
+                    item.selectedDate = null;
+                    item.device = '';
+                },
+
+                openScanner() {
+                    this.showScanner = true;
+                    this.scanCode = '';
+                    setTimeout(() => {
+                        document.querySelector('input[autofocus]')?.focus();
+                    }, 100);
+                },
+
+                processScan() {
+                    if (!this.scanCode) return;
+                    // 模拟从HIS获取数据
+                    this.showToast('正在从HIS获取患者信息...', 'info');
+                    setTimeout(() => {
+                        this.formData = {
+                            patientName: '扫码患者',
+                            gender: '男',
+                            age: 35,
+                            patientNo: this.scanCode,
+                            patientSource: 'outpatient',
+                            examItems: [{ examItem: '胸部CT平扫', examType: 'CT', device: '', appointmentTime: '' }]
+                        };
+                        this.isCreatingNew = true;
+                        this.selectedPatient = null;
+                        this.showScanner = false;
+                        this.showToast('患者信息已导入', 'success');
+                    }, 800);
+                },
+
+                saveRegistration() {
+                    this.showToast('登记信息已保存', 'success');
+                },
+
+                markAsArrived() {
+                    if (this.selectedPatient) {
+                        this.selectedPatient.status = 'arrived';
+                        this.showNursingSection = true;
+                        this.nursingData.arrivalTime = new Date().toISOString().slice(0, 16);
+                        this.showToast('患者已标记到检', 'success');
+                    }
+                },
+
+                sendToWorklist() {
+                    this.showToast('检查信息已下发至设备', 'success');
+                },
+
+                printTicket() {
+                    this.showToast('正在打印检查单...', 'info');
+                },
+
+                fetchFromHIS() {
+                    this.showToast('正在从HIS刷新数据...', 'info');
+                },
+
+                showToast(message, type = 'success') {
+                    // 简单实现，实际项目中可以使用更好的toast组件
+                    alert(message);
+                }
+            };
+        }
+    </script>
+</body>
+</html>

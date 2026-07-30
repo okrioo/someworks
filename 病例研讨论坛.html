@@ -1,0 +1,2655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XX市区域影像系统 - 影像病例研讨管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 自定义样式补充 */
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background-color: #f5f7fa;
+        }
+        
+        .sidebar-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-item.active {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-left: 3px solid #60a5fa;
+        }
+        
+        .case-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .comment-nested {
+            border-left: 3px solid #e5e7eb;
+            padding-left: 1rem;
+        }
+        
+        .permission-badge-public {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .permission-badge-hospital {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .permission-badge-dept {
+            background-color: #fce7f3;
+            color: #9d174d;
+        }
+        
+        .star-filled {
+            color: #fbbf24;
+        }
+        
+        .star-empty {
+            color: #d1d5db;
+        }
+        
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* 影像区域样式 */
+        .image-container {
+            position: relative;
+            background-color: #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .image-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            height: 100%;
+        }
+        
+        /* 标注样式 */
+        .annotation {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ff4d4f;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ff4d4f;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .annotation:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px #ff4d4f;
+        }
+        
+        .annotation.active {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px #ff4d4f;
+            background-color: rgba(255, 77, 79, 0.2);
+        }
+        
+        /* 评论者标注样式 */
+        .annotation.commenter {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+        
+        .annotation.commenter:hover {
+            box-shadow: 0 0 10px #1890ff;
+        }
+        
+        .annotation.commenter.active {
+            box-shadow: 0 0 15px #1890ff;
+            background-color: rgba(24, 144, 255, 0.2);
+        }
+        
+        /* 标签样式 */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #e6f7ff;
+            color: #1890ff;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .tag .remove-tag {
+            margin-left: 0.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        
+        .tag .remove-tag:hover {
+            color: #ff4d4f;
+        }
+        
+        /* 批注输入框 */
+        .annotation-input {
+            position: absolute;
+            background: white;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            padding: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+        }
+
+        /* 批注操作菜单 */
+        .annotation-popover {
+            position: absolute;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            min-width: 120px;
+        }
+
+        .annotation-popover::before {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid white;
+        }
+
+        .annotation-popover::after {
+            content: '';
+            position: absolute;
+            bottom: -9px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 9px solid transparent;
+            border-right: 9px solid transparent;
+            border-top: 9px solid #e5e7eb;
+            z-index: -1;
+        }
+
+        .annotation-popover.above::before {
+            bottom: auto;
+            top: -8px;
+            border-top: none;
+            border-bottom: 8px solid white;
+        }
+
+        .annotation-popover.above::after {
+            bottom: auto;
+            top: -9px;
+            border-top: none;
+            border-bottom: 9px solid #e5e7eb;
+        }
+
+        .annotation-popover-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #374151;
+            transition: background-color 0.2s;
+        }
+
+        .annotation-popover-btn:hover {
+            background-color: #f3f4f6;
+        }
+
+        .annotation-popover-btn.delete {
+            color: #dc2626;
+        }
+
+        .annotation-popover-btn.delete:hover {
+            background-color: #fef2f2;
+        }
+
+        .annotation-popover-btn i {
+            margin-right: 8px;
+            width: 16px;
+        }
+
+        /* 批注列表项 */
+        .annotation-item {
+            transition: all 0.3s ease;
+        }
+
+        .annotation-item.active {
+            background-color: #e6f7ff;
+            border-left: 3px solid #1890ff;
+        }
+
+        /* Toggle Switch 样式 */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #3b82f6;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Tab 选项卡样式 */
+        .permission-tabs {
+            display: flex;
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+
+        .permission-tab {
+            flex: 1;
+            padding: 0.75rem 0.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6b7280;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .permission-tab:hover {
+            color: #3b82f6;
+        }
+
+        .permission-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .permission-tab .badge {
+            display: inline-block;
+            padding: 0.125rem 0.375rem;
+            font-size: 0.625rem;
+            font-weight: 600;
+            background-color: #dbeafe;
+            color: #1e40af;
+            border-radius: 9999px;
+            margin-left: 0.25rem;
+        }
+
+        /* 选择器容器 */
+        .selector-container {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        /* 权限按钮组样式 */
+        .permission-btn {
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .permission-btn:first-child {
+            border-top-left-radius: 0.5rem;
+            border-bottom-left-radius: 0.5rem;
+        }
+
+        .permission-btn:last-child {
+            border-top-right-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+        .permission-btn.active {
+            background-color: #3b82f6 !important;
+            color: white !important;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .permission-btn:not(.active):hover {
+            background-color: #f3f4f6;
+        }
+
+        /* 上传区域样式 */
+        .upload-area {
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #1890ff;
+            background-color: rgba(24, 144, 255, 0.05);
+        }
+        
+        .upload-area.dragover {
+            border-color: #1890ff;
+            background-color: rgba(24, 144, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+    <!-- 顶部导航栏 -->
+    <header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg z-20">
+        <div class="flex items-center justify-between px-6 py-3">
+            <div class="flex items-center space-x-4">
+                <i class="fas fa-hospital-alt text-2xl"></i>
+                <div>
+                    <h1 class="text-xl font-bold">XX市区域影像系统</h1>
+                    <p class="text-xs text-blue-100">影像病例研讨管理模块</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="relative">
+                    <i class="fas fa-bell text-lg"></i>
+                    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-blue-200 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user-md"></i>
+                    </div>
+                    <span class="text-sm">李XX | XX市人民医院</span>
+                </div>
+                <button class="text-sm hover:text-blue-100">
+                    <i class="fas fa-sign-out-alt"></i> 退出
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容区 -->
+    <div class="flex flex-1 overflow-hidden">
+        <!-- 左侧菜单栏 -->
+        <aside class="w-64 bg-gray-800 text-gray-100 flex flex-col shadow-xl">
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <div class="px-4 mb-6">
+                    <h2 class="text-xs uppercase tracking-wider text-gray-400 font-semibold">病例研讨</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="#" class="sidebar-item active flex items-center px-4 py-3 transition-all" data-tab="all-cases">
+                            <i class="fas fa-th-list w-6"></i>
+                            <span>研讨病例管理</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="sidebar-item flex items-center px-4 py-3 transition-all" data-tab="my-favorites">
+                            <i class="fas fa-star w-6"></i>
+                            <span>我的收藏</span>
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="px-4 mt-8 mb-4">
+                    <h2 class="text-xs uppercase tracking-wider text-gray-400 font-semibold">个人管理</h2>
+                </div>
+                <ul class="space-y-1">
+                    <li>
+                        <a href="#" class="sidebar-item flex items-center px-4 py-3 transition-all" data-tab="my-publications">
+                            <i class="fas fa-user-edit w-6"></i>
+                            <span>我的发布</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="p-4 bg-gray-900">
+                <div class="text-xs text-gray-400">
+                    <p class="mb-2"><i class="fas fa-info-circle mr-2"></i>系统状态</p>
+                    <div class="flex items-center">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        <span>正常运行</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右侧主内容区 -->
+        <main class="flex-1 overflow-y-auto p-6" id="main-content">
+            <!-- 研讨病例管理页面 -->
+            <div id="all-cases-view" class="view-section">
+                <!-- 页面标题和操作按钮 -->
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">研讨病例库</h2>
+                        <p class="text-gray-500 text-sm mt-1">浏览和参与区域内影像病例讨论</p>
+                    </div>
+                    <button onclick="openPublishModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg shadow-md transition-all flex items-center space-x-2">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>发布新病例</span>
+                    </button>
+                </div>
+
+                <!-- 搜索筛选区 -->
+                <div class="bg-white rounded-lg shadow-md p-5 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-search mr-1"></i>关键词搜索
+                            </label>
+                            <input type="text" placeholder="患者姓名/病种/部位" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-notes-medical mr-1"></i>病种类型
+                            </label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">全部病种</option>
+                                <option value="呼吸系统">呼吸系统</option>
+                                <option value="神经系统">神经系统</option>
+                                <option value="消化系统">消化系统</option>
+                                <option value="骨骼肌肉">骨骼肌肉</option>
+                                <option value="心血管系统">心血管系统</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-x-ray mr-1"></i>影像类型
+                            </label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">全部类型</option>
+                                <option value="CT">CT</option>
+                                <option value="MRI">MRI</option>
+                                <option value="DR">DR</option>
+                                <option value="CR">CR</option>
+                                <option value="超声">超声</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-calendar-alt mr-1"></i>发布时间
+                            </label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">全部时间</option>
+                                <option value="today">今天</option>
+                                <option value="week">本周</option>
+                                <option value="month">本月</option>
+                                <option value="quarter">近三月</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg mr-2">
+                            <i class="fas fa-redo mr-1"></i>重置
+                        </button>
+                        <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+                            <i class="fas fa-search mr-1"></i>搜索
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 病例列表 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="case-list">
+                    <!-- 病例卡片将通过 JS 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 我的收藏页面 -->
+            <div id="my-favorites-view" class="view-section hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">我的收藏</h2>
+                    <p class="text-gray-500 text-sm mt-1">已收藏的有价值病例</p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="favorites-list">
+                    <!-- 收藏列表通过 JS 动态生成 -->
+                </div>
+            </div>
+
+            <!-- 摘要记录页面 -->
+            <div id="summary-records-view" class="view-section hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">摘要记录</h2>
+                    <p class="text-gray-500 text-sm mt-1">高价值研讨结论提取与沉淀</p>
+                </div>
+                <div class="space-y-4" id="summary-list">
+                    <!-- 摘要列表通过 JS 动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 我的发布页面 -->
+            <div id="my-publications-view" class="view-section hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">我的发布</h2>
+                    <p class="text-gray-500 text-sm mt-1">管理我发布的影像病例</p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" id="my-publications-list">
+                    <!-- 我的发布列表通过 JS 动态生成 -->
+                </div>
+            </div>
+        </main>
+
+        <!-- 病例详情抽屉 -->
+        <div id="case-detail-drawer" class="fixed inset-y-0 right-0 w-[90vw] bg-white shadow-2xl transform translate-x-full transition-transform duration-300 z-30 overflow-hidden">
+            <div class="h-full flex flex-col">
+                <!-- 抽屉头部 -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold" id="detail-title">病例详情</h3>
+                        <p class="text-sm text-blue-100" id="detail-subtitle">患者信息</p>
+                    </div>
+                    <button onclick="closeDetailDrawer()" class="text-white hover:text-blue-100">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <!-- 抽屉内容 -->
+                <div class="flex h-[calc(100%-100px)]">
+                    <!-- 左侧：影像展示区 -->
+                    <div class="w-[70%] p-6 border-r border-gray-200">
+                        <h4 class="font-bold text-gray-800 mb-4">
+                            <i class="fas fa-x-ray mr-2"></i>影像查看
+                        </h4>
+                        
+                        <!-- 影像展示区 -->
+                        <div id="detail-image-container" class="image-container h-[500px] mb-4">
+                            <!-- 模拟影像 -->
+                            <div class="w-full h-full bg-gray-800 flex items-center justify-center">
+                                <img src="https://via.placeholder.com/800x600/333/666?text=DICOM+Image" alt="DICOM 影像" class="max-w-full max-h-full object-contain">
+                            </div>
+                            <!-- 预置标注 -->
+                            <div class="annotation" style="left: 30%; top: 40%;" data-id="1">1</div>
+                            <div class="annotation" style="left: 60%; top: 50%;" data-id="2">2</div>
+                            <div class="annotation" style="left: 45%; top: 65%;" data-id="3">3</div>
+                        </div>
+                        
+                        <div class="flex space-x-2">
+                            <button class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg">
+                                <i class="fas fa-expand mr-1"></i>全屏查看
+                            </button>
+                            <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg">
+                                <i class="fas fa-download mr-1"></i>下载影像
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：内容与交互区 -->
+                    <div class="w-[30%] p-6 overflow-y-auto">
+                        <!-- 锚点导航 -->
+                        <div class="sticky top-0 bg-white z-10 mb-4 pb-2 border-b">
+                            <div class="flex space-x-2 overflow-x-auto">
+                                <button class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md" onclick="scrollToSection('patient-info')">患者信息</button>
+                                <button class="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" onclick="scrollToSection('clinical-summary')">临床摘要</button>
+                                <button class="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" onclick="scrollToSection('image-annotations')">影像批注</button>
+                                <button class="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" onclick="scrollToSection('summary-records')">摘要记录</button>
+                                <button class="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" onclick="scrollToSection('comments')">互动评论</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 病例基本信息 -->
+                        <div id="patient-info" class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+                            <h4 class="font-bold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-user-injured mr-2"></i>患者信息
+                            </h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">匿名标识:</span>
+                                    <span class="font-medium" id="detail-patient-id">张**</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">性别:</span>
+                                    <span class="font-medium" id="detail-gender">男</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">年龄:</span>
+                                    <span class="font-medium" id="detail-age">45 岁</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">检查类型:</span>
+                                    <span class="font-medium" id="detail-modality">CT</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">检查部位:</span>
+                                    <span class="font-medium" id="detail-body-part">胸部</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">发布时间:</span>
+                                    <span class="font-medium" id="detail-publish-time">2024-01-15</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">发布医生:</span>
+                                    <span class="font-medium" id="detail-doctor">王XX</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-500">可见范围:</span>
+                                    <span id="detail-permission" class="permission-badge-public px-2 py-1 rounded text-xs">公开至全区域</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500">
+                                        <i class="fas fa-eye mr-1"></i>浏览：<span id="detail-views">128</span>
+                                    </span>
+                                    <span class="text-gray-500">
+                                        <i class="fas fa-comment mr-1"></i>评论：<span id="detail-comments-count">12</span>
+                                    </span>
+                                    <button onclick="toggleFavoriteFromDetail()" class="text-yellow-500 hover:text-yellow-600">
+                                        <i id="detail-favorite-btn" class="fas fa-star text-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 查看原始报告按钮（根据设置显示/隐藏） -->
+                            <div id="detail-original-report-btn-container" class="mt-3 hidden">
+                                <button onclick="openOriginalReportModal()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 py-2 rounded-lg text-sm font-medium transition-colors">
+                                    <i class="fas fa-file-alt mr-2"></i>查看原始报告
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 临床摘要 -->
+                        <div id="clinical-summary" class="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+                            <h4 class="font-bold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-file-medical mr-2"></i>临床摘要
+                            </h4>
+                            <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-line" id="detail-clinical-summary">主诉：反复咳嗽、咳痰 2 周
+
+临床体征：双肺呼吸音粗，未闻及干湿性啰音
+
+临床诊断：右肺上叶结节待查
+
+现病史：患者 2 周前无明显诱因出现咳嗽，咳白色黏痰，无发热、胸痛、咯血。外院胸片示右肺上叶阴影，建议进一步检查。
+
+既往史：高血压病史 5 年，规律服用氨氯地平 5mg qd，血压控制可。否认糖尿病、冠心病病史。无手术外伤史。
+
+体格检查：T 36.5℃，P 80 次/分，R 18 次/分，BP 135/85mmHg。神志清楚，精神可。双肺呼吸音粗，未闻及干湿性啰音。心律齐，各瓣膜区未闻及病理性杂音。腹软，无压痛。双下肢无水肿。
+
+备注说明：建议行胸部 CT 增强扫描，必要时行 PET-CT 检查。</div>
+                        </div>
+                        
+                        <!-- 首发见解 -->
+                        <div class="bg-blue-50 rounded-lg border border-blue-200 p-4 mt-4">
+                            <h4 class="font-bold text-blue-800 mb-3 border-b border-blue-200 pb-2">
+                                <i class="fas fa-lightbulb mr-2"></i>发布者初步看法
+                            </h4>
+                            <p class="text-sm text-gray-700 leading-relaxed" id="detail-initial-opinion">
+                                CT 表现：右肺上叶见一约 2.5cm×3.0cm 结节影，边缘毛糙，可见毛刺征，局部胸膜牵拉。
+                                考虑周围型肺癌可能性大，建议进一步 PET-CT 检查及穿刺活检明确诊断。
+                            </p>
+                        </div>
+                        
+                        <!-- 影像批注 -->
+                        <div id="image-annotations" class="bg-gray-50 rounded-lg p-4 mt-4">
+                            <h4 class="font-bold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-sticky-note mr-2"></i>影像批注
+                            </h4>
+                            <div id="detail-annotation-list" class="space-y-3">
+                                <div class="annotation-item p-3 bg-white rounded-lg border border-gray-200" data-id="1">
+                                    <div class="flex items-start">
+                                        <div class="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">1</div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-700">右肺上叶结节，边缘毛糙，可见毛刺征</p>
+                                            <p class="text-xs text-gray-500 mt-1">王XX | 2024-01-15</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="annotation-item p-3 bg-white rounded-lg border border-gray-200" data-id="2">
+                                    <div class="flex items-start">
+                                        <div class="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">2</div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-700">局部胸膜牵拉征，提示恶性可能</p>
+                                            <p class="text-xs text-gray-500 mt-1">王XX | 2024-01-15</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="annotation-item p-3 bg-white rounded-lg border border-gray-200" data-id="3">
+                                    <div class="flex items-start">
+                                        <div class="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">3</div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-700">纵隔淋巴结未见明显肿大</p>
+                                            <p class="text-xs text-gray-500 mt-1">王XX | 2024-01-15</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 摘要记录 -->
+                        <div id="summary-records" class="bg-gray-50 rounded-lg p-4 mt-4">
+                            <h4 class="font-bold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-book-medical mr-2"></i>摘要记录
+                            </h4>
+                            
+                            <!-- 标签 -->
+                            <div class="mb-4">
+                                <h5 class="text-sm font-medium text-gray-700 mb-2">标签</h5>
+                                <div id="detail-tags" class="flex flex-wrap">
+                                    <span class="tag">
+                                        肺结节
+                                        <span class="remove-tag" onclick="this.parentElement.remove()">×</span>
+                                    </span>
+                                    <span class="tag">
+                                        CT
+                                        <span class="remove-tag" onclick="this.parentElement.remove()">×</span>
+                                    </span>
+                                    <span class="tag">
+                                        肺癌
+                                        <span class="remove-tag" onclick="this.parentElement.remove()">×</span>
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- 专家点评 -->
+                            <div class="mb-4">
+                                <h5 class="text-sm font-medium text-gray-700 mb-2">专家点评</h5>
+                                <p class="text-sm text-gray-700 leading-relaxed" id="detail-expert-review">
+                                    该病例影像表现典型，右肺上叶结节具有毛刺征和胸膜牵拉征，高度提示周围型肺癌。建议进一步行PET-CT检查评估肿瘤代谢活性，同时进行穿刺活检明确病理诊断。治疗方案应根据病理结果和临床分期制定，早期病例可考虑手术切除，晚期病例则以综合治疗为主。
+                                </p>
+                            </div>
+                            
+                            <!-- 知识点提取 -->
+                            <div>
+                                <h5 class="text-sm font-medium text-gray-700 mb-2">知识点提取</h5>
+                                <p class="text-sm text-gray-700 leading-relaxed" id="detail-knowledge-points">
+                                    1. 周围型肺癌的典型影像特征：毛刺征、分叶征、胸膜牵拉征
+                                    2. 肺结节的评估方法：大小、形态、密度、生长速度
+                                    3. 肺癌的诊断流程：影像检查、病理活检、分期评估
+                                    4. 肺癌的治疗原则：早期手术，晚期综合治疗
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- 互动评论区 -->
+                        <div id="comments" class="mt-6">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center justify-between">
+                                <span><i class="fas fa-comments mr-2"></i>专业讨论区</span>
+                                <span class="text-sm text-gray-500" id="comment-count-label">共 12 条评论</span>
+                            </h4>
+                            
+                            <!-- 评论输入框 -->
+                            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                                <div class="flex items-start space-x-3">
+                                    <div class="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user-md text-blue-600"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <textarea placeholder="分享您的专业见解..." rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+                                        <div class="mt-2 flex justify-end items-center">
+                                            <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm">
+                                                <i class="fas fa-paper-plane mr-1"></i>发表评论
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 评论列表 -->
+                            <div class="space-y-4" id="comment-list">
+                                <!-- 评论通过 JS 动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 发布新病例模态框 -->
+    <div id="publish-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-40">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden">
+            <!-- 模态框头部 -->
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between">
+                <h3 class="text-lg font-bold" id="publish-modal-title">
+                    <i class="fas fa-plus-circle mr-2"></i>发布新病例
+                </h3>
+                <button onclick="closePublishModal()" class="text-white hover:text-blue-100">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- 模态框内容 -->
+            <div class="flex max-h-[calc(90vh-140px)]">
+                <!-- 左侧：影像主功能区 -->
+                <div class="w-[70%] p-6 border-r border-gray-200">
+                    <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                        <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-2">1</span>
+                        影像预览与标注
+                    </h4>
+                    
+                    <!-- 影像上传区域 -->
+                    <div id="image-upload-area" class="image-container h-[500px] mb-4 upload-area border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer">
+                        <div class="image-placeholder text-center">
+                            <i class="fas fa-cloud-upload-alt text-5xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">点击或拖拽上传 DICOM 影像文件</p>
+                            <p class="text-sm text-gray-400">支持格式：.dcm, .zip (最大 500MB)</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 上传后的影像预览 -->
+                    <div id="image-preview" class="image-container h-[500px] mb-4 hidden">
+                        <!-- 模拟影像 -->
+                        <div class="w-full h-full bg-gray-800 flex items-center justify-center">
+                            <img src="https://via.placeholder.com/800x600/333/666?text=DICOM+Image" alt="DICOM 影像" class="max-w-full max-h-full object-contain">
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <button id="upload-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg">
+                            <i class="fas fa-upload mr-1"></i>选择文件
+                        </button>
+                        <button id="clear-annotations-btn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg">
+                            <i class="fas fa-eraser mr-1"></i>清除标注
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 右侧：内容与交互区 -->
+                <div class="w-[30%] p-6 overflow-y-auto">
+                    <form id="publish-form" class="space-y-6">
+                        <!-- 第二步：患者基本信息 -->
+                        <div class="bg-gray-50 rounded-lg p-5">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-2">2</span>
+                                患者基本信息
+                            </h4>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">匿名标识 <span class="text-red-500">*</span></label>
+                                    <input type="text" id="patient-name" placeholder="如：张**" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">性别 <span class="text-red-500">*</span></label>
+                                    <select id="patient-gender" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">请选择</option>
+                                        <option value="男">男</option>
+                                        <option value="女">女</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">年龄 <span class="text-red-500">*</span></label>
+                                    <input type="number" id="patient-age" placeholder="岁" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">影像类型 <span class="text-red-500">*</span></label>
+                                    <select id="patient-modality" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">请选择</option>
+                                        <option value="CT">CT</option>
+                                        <option value="MRI">MRI</option>
+                                        <option value="DR">DR</option>
+                                        <option value="超声">超声</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">检查部位 <span class="text-red-500">*</span></label>
+                                    <select id="patient-body-part" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">请选择</option>
+                                        <option value="头部">头部</option>
+                                        <option value="颈部">颈部</option>
+                                        <option value="胸部">胸部</option>
+                                        <option value="腹部">腹部</option>
+                                        <option value="盆腔">盆腔</option>
+                                        <option value="脊柱">脊柱</option>
+                                        <option value="四肢关节">四肢关节</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">病种分类 <span class="text-red-500">*</span></label>
+                                    <select id="patient-disease-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">请选择</option>
+                                        <option value="呼吸系统">呼吸系统</option>
+                                        <option value="神经系统">神经系统</option>
+                                        <option value="消化系统">消化系统</option>
+                                        <option value="骨骼肌肉">骨骼肌肉</option>
+                                        <option value="心血管系统">心血管系统</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">检查项目 <span class="text-red-500">*</span></label>
+                                    <input type="text" id="exam-item" placeholder="如：胸部CT平扫、头颅MRI增强等" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div class="flex items-center justify-between pt-2">
+                                    <label class="block text-sm font-medium text-gray-700">允许查看原始报告</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="show-original-report">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">开启后，病例详情页将显示"查看原始报告"按钮</p>
+                            </div>
+                        </div>
+
+                        <!-- 第三步：临床摘要 -->
+                        <div class="bg-gray-50 rounded-lg p-5">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-2">3</span>
+                                临床摘要
+                            </h4>
+                            <textarea id="clinical-summary" placeholder="请详细描述患者的主诉、现病史、既往史、体格检查等临床信息..." rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                        
+                        <!-- 第四步：初步看法 -->
+                        <div class="bg-gray-50 rounded-lg p-5">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-2">4</span>
+                                您的初步看法
+                            </h4>
+                            <textarea id="initial-opinion" placeholder="请描述影像学表现及您的初步诊断意见..." rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                        
+                        <!-- 第五步：权限设置 -->
+                        <div class="bg-gray-50 rounded-lg p-5">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-2">5</span>
+                                可见范围设置
+                            </h4>
+                            <div class="flex rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm w-full">
+                                <button type="button" class="permission-btn flex-1 px-2 py-2.5 text-xs font-medium transition-all duration-200 border-r border-gray-200 last:border-r-0 bg-blue-600 text-white whitespace-nowrap" data-permission="public" onclick="switchPermissionBtn('public')">
+                                    公开
+                                </button>
+                                <button type="button" class="permission-btn flex-1 px-2 py-2.5 text-xs font-medium transition-all duration-200 border-r border-gray-200 last:border-r-0 bg-white text-gray-600 hover:bg-gray-50 whitespace-nowrap" data-permission="hospital" onclick="switchPermissionBtn('hospital')">
+                                    本院
+                                </button>
+                                <button type="button" class="permission-btn flex-1 px-2 py-2.5 text-xs font-medium transition-all duration-200 border-r border-gray-200 last:border-r-0 bg-white text-gray-600 hover:bg-gray-50 whitespace-nowrap" data-permission="dept" onclick="switchPermissionBtn('dept')">
+                                    指定科室
+                                </button>
+                                <button type="button" class="permission-btn flex-1 px-2 py-2.5 text-xs font-medium transition-all duration-200 bg-white text-gray-600 hover:bg-gray-50 whitespace-nowrap" data-permission="expert" onclick="switchPermissionBtn('expert')">
+                                    指定专家
+                                </button>
+                            </div>
+                            <input type="hidden" id="permission-value" name="permission" value="public">
+
+                            <!-- 指定科室选择器 -->
+                            <div id="dept-selector" class="selector-container hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">选择科室</label>
+                                <select id="dept-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="handleDeptSelect(this)">
+                                    <option value="">请选择科室</option>
+                                    <option value="影像科">影像科</option>
+                                    <option value="放射科">放射科</option>
+                                    <option value="超声科">超声科</option>
+                                    <option value="CT/MRI室">CT/MRI室</option>
+                                    <option value="核医学科">核医学科</option>
+                                    <option value="病理科">病理科</option>
+                                </select>
+                                <div id="selected-dept-tags" class="flex flex-wrap gap-2 mt-3"></div>
+                            </div>
+
+                            <!-- 指定专家选择器 -->
+                            <div id="expert-selector" class="selector-container hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">选择专家</label>
+                                <select id="expert-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="handleExpertSelect(this)">
+                                    <option value="">请选择专家</option>
+                                </select>
+                                <div id="selected-expert-tags" class="flex flex-wrap gap-2 mt-3"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- 摘要记录 -->
+                        <div class="bg-gray-50 rounded-lg p-5">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                                <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-2">6</span>
+                                摘要记录
+                            </h4>
+                            
+                            <!-- 专家点评 -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">专家点评</label>
+                                <textarea id="expert-review" placeholder="输入对该病例的权威深度解析..." rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                            
+                            <!-- 知识点提取 -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">知识点提取</label>
+                                <textarea id="knowledge-points" placeholder="归纳该病例涉及的核心医学知识点..." rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                            
+                            <!-- 自定义标签 -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">自定义标签</label>
+                                <div id="tags-container" class="flex flex-wrap mb-2"></div>
+                                <input type="text" id="tag-input" placeholder="输入标签后按回车键添加（如：肺结节、CT）" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        
+                        <!-- 批注列表 -->
+                        <div class="bg-gray-50 rounded-lg p-5">
+                            <h4 class="font-bold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-sticky-note mr-2"></i>影像批注
+                            </h4>
+                            <div id="annotation-list" class="space-y-3">
+                                <p class="text-gray-500 text-sm">在影像上点击进行标注，添加批注</p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- 模态框底部 -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t">
+                <button type="button" onclick="closePublishModal()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                    <i class="fas fa-times mr-1"></i>取消
+                </button>
+                <button type="button" class="px-6 py-2 bg-gray-100 rounded-lg text-gray-700 hover:bg-gray-200">
+                    <i class="fas fa-save mr-1"></i>保存草稿
+                </button>
+                <button type="button" id="publish-submit-btn" onclick="submitPublish()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                    <i class="fas fa-check mr-1"></i>立即发布
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 查看原始报告模态框 -->
+    <div id="original-report-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-40">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden">
+            <!-- 模态框头部 -->
+            <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-4 flex items-center justify-between">
+                <h3 class="text-lg font-bold">
+                    <i class="fas fa-file-alt mr-2"></i>原始检查报告
+                </h3>
+                <button onclick="closeOriginalReportModal()" class="text-white hover:text-indigo-100">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 模态框内容 -->
+            <div class="p-6 max-h-[calc(80vh-140px)] overflow-y-auto">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <pre id="original-report-content" class="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed"></pre>
+                </div>
+            </div>
+
+            <!-- 模态框底部 -->
+            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t">
+                <button type="button" onclick="closeOriginalReportModal()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                    <i class="fas fa-times mr-1"></i>关闭
+                </button>
+                <button type="button" onclick="printOriginalReport()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">
+                    <i class="fas fa-print mr-1"></i>打印报告
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock 数据
+        const mockCases = [
+            {
+                id: 1,
+                patientName: '张**',
+                gender: '男',
+                age: 45,
+                modality: 'CT',
+                bodyPart: '胸部',
+                diseaseType: '呼吸系统',
+                doctor: '李XX',
+                hospital: 'XX市人民医院',
+                publishTime: '2024-01-15 10:30',
+                views: 128,
+                comments: 12,
+                permission: 'public',
+                isFavorite: true,
+                clinicalSummary: '患者因"反复咳嗽、咳痰 2 周"入院。既往有高血压病史 5 年，规律服药控制。无吸烟史。',
+                initialOpinion: 'CT 表现：右肺上叶见一约 2.5cm×3.0cm 结节影，边缘毛糙，可见毛刺征，局部胸膜牵拉。考虑周围型肺癌可能性大。',
+                tags: ['肺结节', 'CT', '肺癌'],
+                expertReview: '该病例影像表现典型，右肺上叶结节具有毛刺征和胸膜牵拉征，高度提示周围型肺癌。建议进一步行PET-CT检查评估肿瘤代谢活性，同时进行穿刺活检明确病理诊断。治疗方案应根据病理结果和临床分期制定，早期病例可考虑手术切除，晚期病例则以综合治疗为主。',
+                knowledgePoints: '1. 周围型肺癌的典型影像特征：毛刺征、分叶征、胸膜牵拉征\n2. 肺结节的评估方法：大小、形态、密度、生长速度\n3. 肺癌的诊断流程：影像检查、病理活检、分期评估\n4. 肺癌的治疗原则：早期手术，晚期综合治疗',
+                showOriginalReport: true,
+                originalReport: '主诉：反复咳嗽、咳痰 2 周\n\n临床体征：双肺呼吸音粗，未闻及干湿性啰音\n\n临床诊断：右肺上叶结节待查\n\n现病史：患者 2 周前无明显诱因出现咳嗽，咳白色黏痰，无发热、胸痛、咯血。外院胸片示右肺上叶阴影，建议进一步检查。\n\n既往史：高血压病史 5 年，规律服用氨氯地平 5mg qd，血压控制可。否认糖尿病、冠心病病史。无手术外伤史。\n\n体格检查：T 36.5℃，P 80 次/分，R 18 次/分，BP 135/85mmHg。神志清楚，精神可。双肺呼吸音粗，未闻及干湿性啰音。心律齐，各瓣膜区未闻及病理性杂音。腹软，无压痛。双下肢无水肿。\n\n备注说明：建议行胸部 CT 增强扫描，必要时行 PET-CT 检查。'
+            },
+            {
+                id: 2,
+                patientName: '李**',
+                gender: '女',
+                age: 62,
+                modality: 'MRI',
+                bodyPart: '头部',
+                diseaseType: '神经系统',
+                doctor: '李XX',
+                hospital: 'XX市人民医院',
+                publishTime: '2024-01-14 15:20',
+                views: 256,
+                comments: 18,
+                permission: 'public',
+                isFavorite: false,
+                clinicalSummary: '患者突发右侧肢体无力伴言语不清 3 小时。既往有糖尿病史 10 年。',
+                initialOpinion: 'MRI-DWI 显示左侧基底节区急性脑梗死灶，MRA 示左侧大脑中动脉狭窄。',
+                tags: ['脑梗死', 'MRI', '急诊'],
+                expertReview: '急性脑梗死是神经系统常见急症，早期诊断和治疗至关重要。该病例通过MRI-DWI序列早期发现梗死灶，为治疗争取了时间。对于有脑血管病危险因素的患者，应及时进行血管评估。',
+                knowledgePoints: '1. 急性脑梗死的早期影像诊断：DWI序列高信号\n2. 脑血管评估的重要性：MRA可显示血管狭窄或闭塞\n3. 脑梗死的治疗时间窗：4.5小时内可考虑溶栓\n4. 二级预防：抗血小板、他汀、控制危险因素'
+            },
+            {
+                id: 3,
+                patientName: '赵**',
+                gender: '男',
+                age: 38,
+                modality: 'CT',
+                bodyPart: '腹部',
+                diseaseType: '消化系统',
+                doctor: '李XX',
+                hospital: 'XX市人民医院',
+                publishTime: '2024-01-14 09:15',
+                views: 89,
+                comments: 7,
+                permission: 'hospital',
+                isFavorite: false,
+                clinicalSummary: '右上腹疼痛伴发热 5 天。查体：Murphy 征阳性。',
+                initialOpinion: 'CT 示胆囊增大，壁增厚，周围少量渗出，考虑急性胆囊炎。',
+                tags: ['胆囊炎', 'CT', '急腹症'],
+                expertReview: '急性胆囊炎是常见的急腹症之一，CT表现典型，包括胆囊增大、壁增厚、周围渗出等。治疗上以抗感染和手术切除为主。',
+                knowledgePoints: '1. 急性胆囊炎的典型体征：Murphy征阳性\n2. 胆囊炎的影像表现：胆囊增大、壁增厚、周围渗出\n3. 胆囊炎的鉴别诊断：需与肝炎、胰腺炎等鉴别\n4. 治疗原则：抗感染、解痉止痛，必要时手术切除'
+            },
+            {
+                id: 4,
+                patientName: '钱**',
+                gender: '女',
+                age: 55,
+                modality: 'DR',
+                bodyPart: '脊柱',
+                diseaseType: '骨骼肌肉',
+                doctor: '周XX',
+                hospital: 'XX市人民医院',
+                publishTime: '2024-01-13 16:45',
+                views: 167,
+                comments: 9,
+                permission: 'public',
+                isFavorite: true,
+                clinicalSummary: '腰背痛 3 年，加重 1 个月。无明显外伤史。',
+                initialOpinion: 'X 线示腰椎退行性变，L4/5椎间隙狭窄，骨质增生形成。'
+            },
+            {
+                id: 5,
+                patientName: '孙**',
+                gender: '男',
+                age: 71,
+                modality: 'CT',
+                bodyPart: '头部',
+                diseaseType: '神经系统',
+                doctor: '李XX',
+                hospital: 'XX市人民医院',
+                publishTime: '2024-01-13 11:00',
+                views: 312,
+                comments: 24,
+                permission: 'public',
+                isFavorite: false,
+                clinicalSummary: '进行性记忆力减退 1 年，加重伴行为异常 3 个月。',
+                initialOpinion: 'CT 示双侧海马萎缩，脑室系统扩大，脑沟增宽，符合阿尔茨海默病表现。',
+                tags: ['阿尔茨海默病', 'CT', '神经系统'],
+                expertReview: '阿尔茨海默病是最常见的痴呆类型，影像学表现为脑萎缩，尤其是海马区萎缩。早期诊断和干预可以延缓疾病进展。',
+                knowledgePoints: '1. 阿尔茨海默病的影像学表现：脑萎缩，特别是海马区\n2. 痴呆的鉴别诊断：血管性痴呆、路易体痴呆等\n3. 阿尔茨海默病的早期症状：记忆力减退、认知功能下降\n4. 治疗原则：胆碱酯酶抑制剂、NMDA受体拮抗剂、认知训练'
+            },
+            {
+                id: 6,
+                patientName: '周**',
+                gender: '女',
+                age: 29,
+                modality: '超声',
+                bodyPart: '腹部',
+                diseaseType: '消化系统',
+                doctor: '郑XX',
+                hospital: 'XX市妇幼保健院',
+                publishTime: '2024-01-12 14:30',
+                views: 198,
+                comments: 15,
+                permission: 'dept',
+                isFavorite: false,
+                clinicalSummary: '体检发现肝占位 1 周。无症状，肝功能正常。',
+                initialOpinion: '超声示肝右叶低回声结节，边界清，内回声均匀，考虑肝血管瘤可能。'
+            }
+        ];
+
+        const mockComments = [
+            {
+                id: 1,
+                caseId: 1,
+                author: '张XX',
+                hospital: 'XX市中医院',
+                avatar: 'fa-user-md',
+                content: '从影像表现来看，结节的形态学特征确实高度提示恶性。建议补充增强扫描，观察强化特点。同时注意纵隔淋巴结情况。',
+                time: '2024-01-15 11:20',
+                likes: 8,
+                replies: [
+                    {
+                        id: 11,
+                        author: '王XX',
+                        hospital: 'XX市人民医院',
+                        avatar: 'fa-user-md',
+                        content: '感谢张XX建议！已安排增强 CT，结果稍后补充。',
+                        time: '2024-01-15 11:45',
+                        likes: 3
+                    }
+                ]
+            },
+            {
+                id: 2,
+                caseId: 1,
+                author: '李XX',
+                hospital: 'XX市人民医院',
+                avatar: 'fa-user-md',
+                content: '这类病例需要与肺结核球、炎性假瘤鉴别。建议完善肿瘤标志物检查，必要时行 CT 引导下穿刺活检明确病理。',
+                time: '2024-01-15 14:30',
+                likes: 12,
+                replies: []
+            },
+            {
+                id: 3,
+                caseId: 1,
+                author: '陈XX',
+                hospital: 'XX市第二人民医院',
+                avatar: 'fa-user-md',
+                content: '学习了！这种典型的毛刺征和胸膜牵拉征确实是周围型肺癌的重要征象。',
+                time: '2024-01-15 16:00',
+                likes: 5,
+                replies: []
+            }
+        ];
+
+        const mockSummaries = [
+            {
+                id: 1,
+                title: '早期肺癌 CT 诊断要点总结',
+                sourceCase: '张** - 右肺结节病例',
+                author: '李XX',
+                hospital: 'XX市人民医院',
+                publishTime: '2024-01-16',
+                content: '1. 结节大小：>8mm 需高度重视；2. 边缘特征：毛刺征、分叶征提示恶性；3. 密度：混合磨玻璃结节恶性概率高；4. 生长速度：倍增时间 20-400 天警惕恶性；5. 强化特点：增强后 CT 值增加>15HU 提示恶性。',
+                tags: ['肺癌', 'CT 诊断', '结节评估']
+            },
+            {
+                id: 2,
+                title: '急性脑梗死 MRI 诊断流程',
+                sourceCase: '李** - 急性脑梗死病例',
+                author: '陈XX',
+                hospital: 'XX市中医院',
+                publishTime: '2024-01-15',
+                content: '1. DWI 高信号是超急性期梗死最敏感征象；2. ADC 图低信号确认细胞毒性水肿；3. MRA 评估血管狭窄/闭塞；4. PWI 评估缺血半暗带；5. 发病 4.5 小时内符合条件者可溶栓治疗。',
+                tags: ['脑梗死', 'MRI', '急诊']
+            },
+            {
+                id: 3,
+                title: '胆囊炎影像学鉴别诊断',
+                sourceCase: '赵** - 急性胆囊炎病例',
+                author: '刘XX',
+                hospital: 'XX市第二人民医院',
+                publishTime: '2024-01-14',
+                content: '1. 胆囊增大（短径>4cm）；2. 壁增厚（>3mm）；3. 周围渗出；4. Murphy 征阳性；5. 需与胆囊癌、肝炎、胰腺炎鉴别。',
+                tags: ['胆囊炎', 'CT', '急腹症']
+            }
+        ];
+
+        // 当前选中的病例 ID
+        let currentCaseId = null;
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            renderCaseList(mockCases);
+            renderFavoritesList();
+            renderSummaryList();
+            setupNavigation();
+        });
+
+        // 渲染病例列表
+        function renderCaseList(cases) {
+            const caseList = document.getElementById('case-list');
+            caseList.innerHTML = cases.map(caseItem => createCaseCard(caseItem)).join('');
+        }
+
+        // 创建病例卡片
+        function createCaseCard(caseItem) {
+            const permissionLabels = {
+                'public': { text: '公开至全区域', class: 'permission-badge-public' },
+                'hospital': { text: '仅限本院', class: 'permission-badge-hospital' },
+                'dept': { text: '指定范围', class: 'permission-badge-dept' }
+            };
+            
+            const permInfo = permissionLabels[caseItem.permission];
+            
+            return `
+                <div class="case-card bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300">
+                    <div class="h-48 bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center border-b cursor-pointer" onclick="openCaseDetail(${caseItem.id})")>
+                        <div class="text-center">
+                            <i class="fas fa-x-ray text-5xl text-gray-400 mb-2"></i>
+                            <p class="text-sm text-gray-500">${caseItem.modality} - ${caseItem.bodyPart}</p>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="cursor-pointer" onclick="openCaseDetail(${caseItem.id})")>
+                                <h3 class="font-bold text-gray-800">${caseItem.patientName}</h3>
+                                <p class="text-sm text-gray-500">${caseItem.gender}，${caseItem.age}岁</p>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="${permInfo.class} px-2 py-1 rounded text-xs">${permInfo.text}</span>
+                                <!-- 设置菜单 -->
+                                <div class="relative">
+                                    <button class="text-gray-500 hover:text-gray-700" onclick="event.stopPropagation(); toggleSettingsMenu(this)">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl hidden z-10" id="settings-menu-${caseItem.id}">
+                                        <div class="py-1">
+                                            <button class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onclick="event.stopPropagation(); editMyCase(${caseItem.id}); toggleSettingsMenu(this)">
+                                                <i class="fas fa-edit mr-2 text-gray-500"></i>编辑
+                                            </button>
+                                            <button class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100" onclick="event.stopPropagation(); deleteMyCase(${caseItem.id}, this); toggleSettingsMenu(this)">
+                                                <i class="fas fa-trash mr-2"></i>删除
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2 cursor-pointer" onclick="openCaseDetail(${caseItem.id})")>${caseItem.clinicalSummary}</p>
+                        
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                            <span><i class="fas fa-user-md mr-1"></i>${caseItem.doctor}</span>
+                            <span><i class="fas fa-hospital mr-1"></i>${caseItem.hospital}</span>
+                        </div>
+                        
+                        <div class="flex items-center justify-between pt-3 border-t">
+                            <div class="flex space-x-4 text-sm text-gray-500">
+                                <span><i class="fas fa-eye mr-1"></i>${caseItem.views}</span>
+                                <span><i class="fas fa-comment mr-1"></i>${caseItem.comments}</span>
+                                <span><i class="fas fa-clock mr-1"></i>${caseItem.publishTime.split(' ')[0]}</span>
+                            </div>
+                            <button onclick="event.stopPropagation(); toggleFavorite(${caseItem.id}, this)" class="hover:scale-110 transition-transform">
+                                <i class="fas fa-star ${caseItem.isFavorite ? 'star-filled' : 'star-empty'} text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染收藏列表
+        function renderFavoritesList() {
+            const favoritesList = document.getElementById('favorites-list');
+            const favorites = mockCases.filter(c => c.isFavorite);
+            
+            if (favorites.length === 0) {
+                favoritesList.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-star text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">暂无收藏病例</p>
+                        <p class="text-sm text-gray-400 mt-2">点击病例卡片上的星标按钮添加收藏</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            favoritesList.innerHTML = favorites.map(caseItem => createCaseCard(caseItem)).join('');
+        }
+
+        // 渲染摘要列表
+        function renderSummaryList() {
+            const summaryList = document.getElementById('summary-list');
+            summaryList.innerHTML = mockSummaries.map(summary => `
+                <div class="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition-shadow">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-gray-800 text-lg">${summary.title}</h3>
+                            <p class="text-sm text-gray-500 mt-1">
+                                <i class="fas fa-link mr-1"></i>来源：${summary.sourceCase}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">${summary.author}</p>
+                            <p class="text-xs text-gray-400">${summary.hospital}</p>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-700 leading-relaxed mb-4">${summary.content}</p>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex space-x-2">
+                            ${summary.tags.map(tag => `<span class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">${tag}</span>`).join('')}
+                        </div>
+                        <span class="text-xs text-gray-400"><i class="fas fa-calendar mr-1"></i>${summary.publishTime}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 设置导航
+        function setupNavigation() {
+            const sidebarItems = document.querySelectorAll('.sidebar-item');
+            sidebarItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // 移除所有激活状态
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    // 添加当前激活状态
+                    this.classList.add('active');
+                    
+                    const tab = this.dataset.tab;
+                    switchView(tab);
+                });
+            });
+        }
+
+        // 切换视图
+        function switchView(tab) {
+            const views = {
+                'all-cases': 'all-cases-view',
+                'my-favorites': 'my-favorites-view',
+                'summary-records': 'summary-records-view'
+            };
+            
+            Object.values(views).forEach(viewId => {
+                document.getElementById(viewId).classList.add('hidden');
+            });
+            
+            if (views[tab]) {
+                document.getElementById(views[tab]).classList.remove('hidden');
+            }
+            
+            // 刷新对应列表
+            if (tab === 'my-favorites') {
+                renderFavoritesList();
+            } else if (tab === 'summary-records') {
+                renderSummaryList();
+            }
+        }
+
+        // 打开发布模态框
+        function openPublishModal() {
+            document.getElementById('publish-modal').classList.remove('hidden');
+            document.getElementById('publish-modal').classList.add('flex');
+        }
+
+        // 关闭发布模态框
+        function closePublishModal() {
+            // 重置模态框标题和按钮文本
+            document.getElementById('publish-modal-title').innerHTML = '<i class="fas fa-plus-circle mr-2"></i>发布新病例';
+            document.getElementById('publish-submit-btn').innerHTML = '<i class="fas fa-check mr-1"></i>立即发布';
+            
+            // 清空表单
+            document.getElementById('publish-form').reset();
+            document.getElementById('tags-container').innerHTML = '';
+            document.getElementById('annotation-list').innerHTML = '<p class="text-gray-500 text-sm">在影像上点击进行标注，添加批注</p>';
+            
+            // 隐藏模态框
+            document.getElementById('publish-modal').classList.add('hidden');
+            document.getElementById('publish-modal').classList.remove('flex');
+        }
+
+        // 提交发布
+        function submitPublish() {
+            const modalTitle = document.getElementById('publish-modal-title').textContent;
+            if (modalTitle.includes('编辑病例')) {
+                alert('病例修改成功！（演示功能）');
+            } else {
+                alert('病例发布成功！（演示功能）');
+            }
+            closePublishModal();
+        }
+
+        // 打开病例详情抽屉
+        function openCaseDetail(caseId) {
+            currentCaseId = caseId;
+            const caseItem = mockCases.find(c => c.id === caseId);
+            
+            if (!caseItem) return;
+            
+            // 填充详情数据
+            document.getElementById('detail-title').textContent = `${caseItem.patientName} - ${caseItem.bodyPart}${caseItem.modality}病例`;
+            document.getElementById('detail-subtitle').textContent = `${caseItem.gender}，${caseItem.age}岁 | ${caseItem.diseaseType}`;
+            document.getElementById('detail-patient-id').textContent = caseItem.patientName;
+            document.getElementById('detail-gender').textContent = caseItem.gender;
+            document.getElementById('detail-age').textContent = caseItem.age + '岁';
+            document.getElementById('detail-modality').textContent = caseItem.modality;
+            document.getElementById('detail-body-part').textContent = caseItem.bodyPart;
+            document.getElementById('detail-publish-time').textContent = caseItem.publishTime;
+            document.getElementById('detail-doctor').textContent = caseItem.doctor + ' (' + caseItem.hospital + ')';
+            document.getElementById('detail-views').textContent = caseItem.views;
+            document.getElementById('detail-comments-count').textContent = caseItem.comments;
+            document.getElementById('detail-clinical-summary').textContent = caseItem.clinicalSummary;
+            document.getElementById('detail-initial-opinion').textContent = caseItem.initialOpinion;
+            
+            // 知识沉淀数据
+            if (caseItem.tags) {
+                const detailTags = document.getElementById('detail-tags');
+                detailTags.innerHTML = caseItem.tags.map(tag => `
+                    <span class="tag">
+                        ${tag}
+                        <span class="remove-tag" onclick="this.parentElement.remove()">×</span>
+                    </span>
+                `).join('');
+            }
+            
+            if (caseItem.expertReview) {
+                document.getElementById('detail-expert-review').textContent = caseItem.expertReview;
+            }
+            
+            if (caseItem.knowledgePoints) {
+                document.getElementById('detail-knowledge-points').textContent = caseItem.knowledgePoints;
+            }
+            
+            // 权限标识
+            const permissionLabels = {
+                'public': { text: '公开至全区域', class: 'permission-badge-public' },
+                'hospital': { text: '仅限本院', class: 'permission-badge-hospital' },
+                'dept': { text: '指定范围', class: 'permission-badge-dept' }
+            };
+            const permInfo = permissionLabels[caseItem.permission];
+            document.getElementById('detail-permission').className = permInfo.class + ' px-2 py-1 rounded text-xs';
+            document.getElementById('detail-permission').textContent = permInfo.text;
+            
+            // 收藏按钮状态
+            updateDetailFavoriteButton(caseItem.isFavorite);
+
+            // 渲染评论
+            renderComments(caseId);
+
+            // 控制"查看原始报告"按钮显示
+            const originalReportBtnContainer = document.getElementById('detail-original-report-btn-container');
+            if (caseItem.showOriginalReport) {
+                originalReportBtnContainer.classList.remove('hidden');
+            } else {
+                originalReportBtnContainer.classList.add('hidden');
+            }
+
+            // 显示抽屉
+            document.getElementById('case-detail-drawer').classList.remove('translate-x-full');
+        }
+
+        // 关闭详情抽屉
+        function closeDetailDrawer() {
+            document.getElementById('case-detail-drawer').classList.add('translate-x-full');
+        }
+
+        // 渲染评论列表
+        function renderComments(caseId) {
+            const comments = mockComments.filter(c => c.caseId === caseId);
+            const commentList = document.getElementById('comment-list');
+            document.getElementById('comment-count-label').textContent = `共 ${comments.length} 条评论`;
+            
+            if (comments.length === 0) {
+                commentList.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-comments text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500">暂无评论</p>
+                        <p class="text-sm text-gray-400">快来发表您的专业见解吧！</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            commentList.innerHTML = comments.map(comment => `
+                <div class="bg-white rounded-lg border border-gray-200 p-4" data-comment-id="${comment.id}">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas ${comment.avatar} text-blue-600"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-2">
+                                <div>
+                                    <span class="font-medium text-gray-800">${comment.author}</span>
+                                    <span class="text-sm text-gray-500 ml-2">${comment.hospital}</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs text-gray-400">${comment.time}</span>
+                                    <button class="text-red-500 hover:text-red-700 text-xs" onclick="deleteComment(${comment.id})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="text-gray-700 text-sm leading-relaxed mb-3">${comment.content}</p>
+                            <div class="flex items-center space-x-4 text-sm">
+                                <button class="text-gray-500 hover:text-blue-600">
+                                    <i class="fas fa-thumbs-up mr-1"></i>${comment.likes}
+                                </button>
+                                <button class="text-gray-500 hover:text-blue-600">
+                                    <i class="fas fa-reply mr-1"></i>回复
+                                </button>
+                            </div>
+                            
+                            ${comment.replies && comment.replies.length > 0 ? `
+                                <div class="mt-4 space-y-3">
+                                    ${comment.replies.map(reply => `
+                                        <div class="comment-nested bg-gray-50 rounded-lg p-3" data-comment-id="${reply.id}">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <div class="flex items-center space-x-2">
+                                                    <div class="w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center">
+                                                        <i class="fas ${reply.avatar} text-blue-600 text-xs"></i>
+                                                    </div>
+                                                    <span class="font-medium text-gray-800 text-sm">${reply.author}</span>
+                                                    <span class="text-xs text-gray-500">${reply.hospital}</span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="text-xs text-gray-400">${reply.time}</span>
+                                                    <button class="text-red-500 hover:text-red-700 text-xs" onclick="deleteComment(${reply.id})">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p class="text-gray-700 text-sm leading-relaxed">${reply.content}</p>
+                                            <div class="mt-2 flex items-center space-x-4">
+                                                <button class="text-gray-500 hover:text-blue-600 text-xs">
+                                                    <i class="fas fa-thumbs-up mr-1"></i>${reply.likes}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 切换收藏状态
+        function toggleFavorite(caseId, btn) {
+            const caseItem = mockCases.find(c => c.id === caseId);
+            if (caseItem) {
+                caseItem.isFavorite = !caseItem.isFavorite;
+                const icon = btn.querySelector('i');
+                if (caseItem.isFavorite) {
+                    icon.classList.remove('star-empty');
+                    icon.classList.add('star-filled');
+                } else {
+                    icon.classList.remove('star-filled');
+                    icon.classList.add('star-empty');
+                }
+            }
+        }
+
+        // 从详情页切换收藏
+        function toggleFavoriteFromDetail() {
+            const caseItem = mockCases.find(c => c.id === currentCaseId);
+            if (caseItem) {
+                caseItem.isFavorite = !caseItem.isFavorite;
+                updateDetailFavoriteButton(caseItem.isFavorite);
+            }
+        }
+
+        // 更新详情页收藏按钮
+        function updateDetailFavoriteButton(isFavorite) {
+            const btn = document.getElementById('detail-favorite-btn');
+            if (isFavorite) {
+                btn.classList.remove('star-empty');
+                btn.classList.add('star-filled');
+            } else {
+                btn.classList.remove('star-filled');
+                btn.classList.add('star-empty');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            
+            // 发布模态框 - 影像上传和标注功能
+            const uploadArea = document.getElementById('image-upload-area');
+            const imagePreview = document.getElementById('image-preview');
+            const uploadBtn = document.getElementById('upload-btn');
+            const clearAnnotationsBtn = document.getElementById('clear-annotations-btn');
+            const annotationList = document.getElementById('annotation-list');
+            
+            let annotationCount = 0;
+            
+            // 模拟上传
+            function handleUpload() {
+                uploadArea.classList.add('hidden');
+                imagePreview.classList.remove('hidden');
+                
+                // 启用标注功能
+                enableAnnotation();
+            }
+            
+            // 上传按钮点击事件
+            uploadBtn.addEventListener('click', handleUpload);
+            
+            // 拖拽上传
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', function() {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                handleUpload();
+            });
+            
+            // 点击上传
+            uploadArea.addEventListener('click', handleUpload);
+            
+            // 启用标注功能
+            function enableAnnotation() {
+                const imageContainer = imagePreview;
+
+                imageContainer.addEventListener('click', function(e) {
+                    // 如果点击的是悬浮菜单或其内部元素，忽略此次点击
+                    if (e.target.closest('.annotation-popover')) {
+                        return;
+                    }
+
+                    const annotation = e.target.closest('.annotation');
+                    if (annotation) {
+                        // 点击已有批注，显示操作菜单
+                        const id = annotation.dataset.id;
+                        showPublishAnnotationPopover(annotation, id, imageContainer);
+                    } else {
+                        // 关闭已打开的菜单
+                        closeAnnotationPopover();
+
+                        // 计算点击位置
+                        const rect = imageContainer.getBoundingClientRect();
+                        const x = ((e.clientX - rect.left) / rect.width) * 100;
+                        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+                        // 创建标注
+                        annotationCount++;
+                        const newAnnotation = document.createElement('div');
+                        newAnnotation.className = 'annotation';
+                        newAnnotation.style.left = x + '%';
+                        newAnnotation.style.top = y + '%';
+                        newAnnotation.dataset.id = annotationCount;
+                        newAnnotation.textContent = annotationCount;
+
+                        imageContainer.appendChild(newAnnotation);
+
+                        // 创建输入框
+                        createAnnotationInput(e.clientX, e.clientY, annotationCount);
+                    }
+                });
+            }
+            
+            // 创建批注输入框
+            function createAnnotationInput(x, y, id) {
+                const inputContainer = document.createElement('div');
+                inputContainer.className = 'annotation-input';
+                inputContainer.style.left = x + 'px';
+                inputContainer.style.top = y + 'px';
+                
+                inputContainer.innerHTML = `
+                    <input type="text" placeholder="输入影像批注..." class="w-64 p-2 border border-gray-300 rounded">
+                    <div class="mt-2 flex space-x-2">
+                        <button class="px-3 py-1 bg-blue-600 text-white rounded">确认</button>
+                        <button class="px-3 py-1 bg-gray-200 text-gray-700 rounded">取消</button>
+                    </div>
+                `;
+                
+                document.body.appendChild(inputContainer);
+                
+                const input = inputContainer.querySelector('input');
+                const confirmBtn = inputContainer.querySelector('button:first-child');
+                const cancelBtn = inputContainer.querySelector('button:last-child');
+                
+                input.focus();
+                
+                // 确认按钮点击
+                confirmBtn.addEventListener('click', function() {
+                    const text = input.value.trim();
+                    if (text) {
+                        addAnnotationItem(id, text);
+                    }
+                    document.body.removeChild(inputContainer);
+                });
+                
+                // 取消按钮点击
+                cancelBtn.addEventListener('click', function() {
+                    document.body.removeChild(inputContainer);
+                });
+                
+                // 回车确认
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        const text = input.value.trim();
+                        if (text) {
+                            addAnnotationItem(id, text);
+                        }
+                        document.body.removeChild(inputContainer);
+                    }
+                });
+            }
+            
+            // 添加批注到列表
+            function addAnnotationItem(id, text) {
+                const item = document.createElement('div');
+                item.className = 'annotation-item p-3 bg-white rounded-lg border border-gray-200';
+                item.dataset.id = id;
+                item.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="w-6 h-6 bg-red-100 text-red-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">${id}</div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-700">${text}</p>
+                            <p class="text-xs text-gray-500 mt-1">李XX | ${new Date().toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                `;
+                
+                // 清空提示文本
+                if (annotationList.querySelector('p.text-gray-500')) {
+                    annotationList.innerHTML = '';
+                }
+                
+                annotationList.appendChild(item);
+            }
+            
+            // 清除标注
+            clearAnnotationsBtn.addEventListener('click', function() {
+                const annotations = imagePreview.querySelectorAll('.annotation');
+                annotations.forEach(annotation => annotation.remove());
+
+                annotationList.innerHTML = '<p class="text-gray-500 text-sm">在影像上点击进行标注，添加批注</p>';
+                annotationCount = 0;
+            });
+
+            // 显示发布页面批注悬浮操作菜单
+            window.showPublishAnnotationPopover = function(annotation, id, container) {
+                // 关闭已存在的菜单
+                closeAnnotationPopover();
+
+                // 创建菜单元素
+                const popover = document.createElement('div');
+                popover.className = 'annotation-popover';
+                popover.innerHTML = `
+                    <button class="annotation-popover-btn delete" onclick="event.stopPropagation(); deletePublishAnnotation('${id}');">
+                        <i class="fas fa-trash-alt"></i>
+                        <span>删除</span>
+                    </button>
+                `;
+
+                // 计算菜单位置
+                const annotationRect = annotation.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const popoverHeight = 50;
+                const popoverWidth = 120;
+                const offset = 10;
+
+                let top = annotationRect.top - containerRect.top - popoverHeight - offset;
+                let showAbove = true;
+
+                if (top < 0) {
+                    top = annotationRect.bottom - containerRect.top + offset;
+                    showAbove = false;
+                }
+
+                let left = annotationRect.left - containerRect.left + (annotationRect.width / 2) - (popoverWidth / 2);
+
+                if (left < 5) {
+                    left = 5;
+                } else if (left + popoverWidth > containerRect.width - 5) {
+                    left = containerRect.width - popoverWidth - 5;
+                }
+
+                popover.style.top = top + 'px';
+                popover.style.left = left + 'px';
+
+                if (!showAbove) {
+                    popover.classList.add('above');
+                }
+
+                container.appendChild(popover);
+                currentAnnotationPopover = popover;
+            };
+
+            // 删除发布页面的批注
+            window.deletePublishAnnotation = function(id) {
+                if (confirm('确定要删除该批注吗？')) {
+                    closeAnnotationPopover();
+
+                    // 删除画布上的批注元素
+                    const annotation = imagePreview.querySelector(`.annotation[data-id="${id}"]`);
+                    if (annotation) {
+                        annotation.remove();
+                    }
+
+                    // 删除批注列表中的对应项
+                    const item = annotationList.querySelector(`.annotation-item[data-id="${id}"]`);
+                    if (item) {
+                        item.remove();
+                    }
+
+                    // 如果批注列表为空，显示提示文本
+                    if (annotationList.children.length === 0) {
+                        annotationList.innerHTML = '<p class="text-gray-500 text-sm">在影像上点击进行标注，添加批注</p>';
+                    }
+                }
+            };
+
+            // 标签输入功能
+            const tagInput = document.getElementById('tag-input');
+            const tagsContainer = document.getElementById('tags-container');
+            
+            if (tagInput) {
+                tagInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        const tagText = tagInput.value.trim();
+                        if (tagText) {
+                            addTag(tagText, tagsContainer);
+                            tagInput.value = '';
+                        }
+                    }
+                });
+            }
+
+            // 详情抽屉 - 图文联动
+            const detailImageContainer = document.getElementById('detail-image-container');
+            const detailAnnotationList = document.getElementById('detail-annotation-list');
+            const commentTextarea = document.querySelector('#case-detail-drawer textarea');
+            
+            // 点击批注定位到图
+            detailAnnotationList.addEventListener('click', function(e) {
+                const item = e.target.closest('.annotation-item');
+                if (item) {
+                    const id = item.dataset.id;
+                    
+                    // 移除所有激活状态
+                    detailAnnotationList.querySelectorAll('.annotation-item').forEach(i => i.classList.remove('active'));
+                    detailImageContainer.querySelectorAll('.annotation').forEach(a => a.classList.remove('active'));
+                    
+                    // 添加激活状态
+                    item.classList.add('active');
+                    const annotation = detailImageContainer.querySelector(`.annotation[data-id="${id}"]`);
+                    if (annotation) {
+                        annotation.classList.add('active');
+                    }
+                }
+            });
+            
+            // 点击图定位到批注（只读模式，仅允许查看，不允许删除或创建新批注）
+            detailImageContainer.addEventListener('click', function(e) {
+                const annotation = e.target.closest('.annotation');
+                if (annotation) {
+                    const id = annotation.dataset.id;
+
+                    // 移除所有激活状态
+                    detailAnnotationList.querySelectorAll('.annotation-item').forEach(i => i.classList.remove('active'));
+                    detailImageContainer.querySelectorAll('.annotation').forEach(a => a.classList.remove('active'));
+
+                    // 添加激活状态
+                    annotation.classList.add('active');
+                    const item = detailAnnotationList.querySelector(`.annotation-item[data-id="${id}"]`);
+                    if (item) {
+                        item.classList.add('active');
+                        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+        });
+        
+        // 扩展切换视图功能
+        function switchView(tab) {
+            const views = {
+                'all-cases': 'all-cases-view',
+                'my-favorites': 'my-favorites-view',
+                'summary-records': 'summary-records-view',
+                'my-publications': 'my-publications-view'
+            };
+            
+            Object.values(views).forEach(viewId => {
+                document.getElementById(viewId).classList.add('hidden');
+            });
+            
+            if (views[tab]) {
+                document.getElementById(views[tab]).classList.remove('hidden');
+            }
+            
+            // 刷新对应列表
+            if (tab === 'my-favorites') {
+                renderFavoritesList();
+            } else if (tab === 'summary-records') {
+                renderSummaryList();
+            } else if (tab === 'my-publications') {
+                renderMyPublicationsList();
+            }
+        }
+        
+        // 确认操作
+        function confirmAction(message, callback) {
+            if (confirm(message)) {
+                callback();
+            }
+        }
+        
+        // 渲染我的发布列表
+        function renderMyPublicationsList() {
+            const publicationsList = document.getElementById('my-publications-list');
+            const myCases = mockCases.filter(c => c.doctor === '李XX');
+            
+            if (myCases.length === 0) {
+                publicationsList.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-file-medical text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">暂无发布病例</p>
+                        <p class="text-sm text-gray-400 mt-2">点击"发布新病例"按钮开始发布</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            publicationsList.innerHTML = myCases.map(caseItem => {
+                const permissionLabels = {
+                    'public': { text: '公开至全区域', class: 'permission-badge-public' },
+                    'hospital': { text: '仅限本院', class: 'permission-badge-hospital' },
+                    'dept': { text: '指定范围', class: 'permission-badge-dept' }
+                };
+                
+                const permInfo = permissionLabels[caseItem.permission];
+                
+                return `
+                    <div class="case-card bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300">
+                        <div class="h-48 bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center border-b">
+                            <div class="text-center">
+                                <i class="fas fa-x-ray text-5xl text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-500">${caseItem.modality} - ${caseItem.bodyPart}</p>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">${caseItem.patientName}</h3>
+                                    <p class="text-sm text-gray-500">${caseItem.gender}，${caseItem.age}岁</p>
+                                </div>
+                                <span class="${permInfo.class} px-2 py-1 rounded text-xs">${permInfo.text}</span>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 mb-3 line-clamp-2">${caseItem.clinicalSummary}</p>
+                            
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-3">
+                                <span><i class="fas fa-user-md mr-1"></i>${caseItem.doctor}</span>
+                                <span><i class="fas fa-hospital mr-1"></i>${caseItem.hospital}</span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between pt-3 border-t">
+                                <div class="flex space-x-4 text-sm text-gray-500">
+                                    <span><i class="fas fa-eye mr-1"></i>${caseItem.views}</span>
+                                    <span><i class="fas fa-comment mr-1"></i>${caseItem.comments}</span>
+                                    <span><i class="fas fa-clock mr-1"></i>${caseItem.publishTime.split(' ')[0]}</span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button onclick="editMyCase(${caseItem.id})" class="text-blue-600 hover:text-blue-900" title="编辑">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteMyCase(${caseItem.id}, this)" class="text-red-600 hover:text-red-900" title="删除">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 删除病例
+        function deleteMyCase(caseId, btn) {
+            if (confirm('确定要删除该病例吗？此操作不可恢复。')) {
+                // 从DOM中移除卡片
+                const caseCard = btn.closest('.case-card');
+                caseCard.remove();
+                
+                // 从数据中移除
+                const caseIndex = mockCases.findIndex(c => c.id === caseId);
+                if (caseIndex !== -1) {
+                    mockCases.splice(caseIndex, 1);
+                }
+                
+                // 显示成功提示
+                alert('病例删除成功');
+                
+                // 重新渲染列表，确保没有病例时显示空状态
+                renderMyPublicationsList();
+            }
+        }
+        
+        // 修改病例
+        function editMyCase(caseId) {
+            const caseItem = mockCases.find(c => c.id === caseId);
+            if (!caseItem) return;
+            
+            // 修改模态框标题和按钮文本
+            document.getElementById('publish-modal-title').innerHTML = '<i class="fas fa-edit mr-2"></i>编辑病例';
+            document.getElementById('publish-submit-btn').innerHTML = '<i class="fas fa-check mr-1"></i>保存修改';
+            
+            // 数据回填
+            document.getElementById('patient-name').value = caseItem.patientName;
+            document.getElementById('patient-gender').value = caseItem.gender;
+            document.getElementById('patient-age').value = caseItem.age;
+            document.getElementById('patient-modality').value = caseItem.modality;
+            document.getElementById('patient-body-part').value = caseItem.bodyPart;
+            document.getElementById('patient-disease-type').value = caseItem.diseaseType;
+            document.getElementById('clinical-summary').value = caseItem.clinicalSummary;
+            document.getElementById('initial-opinion').value = caseItem.initialOpinion;
+            document.getElementById('expert-review').value = caseItem.expertReview || '';
+            document.getElementById('knowledge-points').value = caseItem.knowledgePoints || '';
+            
+            // 清空标签容器并添加现有标签
+            const tagsContainer = document.getElementById('tags-container');
+            tagsContainer.innerHTML = '';
+            if (caseItem.tags) {
+                caseItem.tags.forEach(tag => {
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tag';
+                    tagElement.innerHTML = `
+                        ${tag}
+                        <span class="remove-tag" onclick="this.parentElement.remove()">×</span>
+                    `;
+                    tagsContainer.appendChild(tagElement);
+                });
+            }
+            
+            // 显示模态框
+            document.getElementById('publish-modal').classList.remove('hidden');
+            document.getElementById('publish-modal').classList.add('flex');
+        }
+        
+        // 切换设置菜单
+        function toggleSettingsMenu(btn) {
+            // 关闭所有其他设置菜单
+            document.querySelectorAll('[id^="settings-menu-"]').forEach(menu => {
+                menu.classList.add('hidden');
+            });
+            
+            // 切换当前菜单
+            const menu = btn.nextElementSibling;
+            menu.classList.toggle('hidden');
+        }
+        
+        // 点击其他地方关闭设置菜单
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.relative') && !e.target.closest('[id^="settings-menu-"]')) {
+                document.querySelectorAll('[id^="settings-menu-"]').forEach(menu => {
+                    menu.classList.add('hidden');
+                });
+            }
+        });
+        
+        // 滚动到指定区域
+        function scrollToSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+        
+        // 删除评论
+        function deleteComment(commentId) {
+            if (confirm('确认删除该条评论吗？')) {
+                const commentElement = document.querySelector(`[data-comment-id="${commentId}"]`);
+                if (commentElement) {
+                    commentElement.remove();
+                }
+            }
+        }
+
+        // 临床摘要智能填充函数
+        function fillClinicalSummary(patientData) {
+            const fields = [
+                { key: 'chiefComplaint', label: '主诉' },
+                { key: 'clinicalSigns', label: '临床体征' },
+                { key: 'clinicalDiagnosis', label: '临床诊断' },
+                { key: 'presentIllness', label: '现病史' },
+                { key: 'pastHistory', label: '既往史' },
+                { key: 'physicalExam', label: '体格检查' },
+                { key: 'remarks', label: '备注说明' }
+            ];
+
+            const summaryParts = [];
+            fields.forEach(field => {
+                const value = patientData[field.key];
+                if (value && value.trim()) {
+                    summaryParts.push(`${field.label}：${value.trim()}`);
+                }
+            });
+
+            const clinicalSummaryTextarea = document.getElementById('clinical-summary');
+            if (summaryParts.length > 0) {
+                clinicalSummaryTextarea.value = summaryParts.join('\n\n');
+            }
+        }
+
+        // 专家数据
+        const expertsData = [
+            { name: '李XX', title: '主任医师', department: '影像科', hospital: 'XX市中医院' },
+            { name: '王XX', title: '副主任医师', department: '超声科', hospital: 'XX市中医院' },
+            { name: '张XX', title: '主治医师', department: '放射科', hospital: 'XX市中医院' },
+            { name: '刘XX', title: '主任医师', department: '妇产科超声', hospital: 'XX市妇幼保健院' },
+            { name: '陈XX', title: '副主任医师', department: '儿科影像', hospital: 'XX市妇幼保健院' },
+            { name: '周XX', title: '主任医师', department: 'CT/MRI室', hospital: 'XX市第二人民医院' },
+            { name: '吴XX', title: '主治医师', department: '放射科', hospital: 'XX市第二人民医院' },
+            { name: '郑XX', title: '主任医师', department: '影像中心', hospital: 'XX市人民医院' },
+            { name: '林XX', title: '副主任医师', department: '超声科', hospital: 'XX市人民医院' }
+        ];
+
+        // 已选择的科室和专家
+        let selectedDepts = [];
+        let selectedExperts = [];
+
+        // 切换权限 Tab
+        function switchPermissionTab(permission) {
+            // 更新 Tab 样式
+            document.querySelectorAll('.permission-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.permission === permission) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // 更新隐藏字段
+            document.getElementById('permission-value').value = permission;
+
+            // 显示/隐藏选择器
+            const deptSelector = document.getElementById('dept-selector');
+            const expertSelector = document.getElementById('expert-selector');
+
+            if (permission === 'dept') {
+                deptSelector.classList.remove('hidden');
+                expertSelector.classList.add('hidden');
+            } else if (permission === 'expert') {
+                deptSelector.classList.add('hidden');
+                expertSelector.classList.remove('hidden');
+                loadExpertOptions();
+            } else {
+                deptSelector.classList.add('hidden');
+                expertSelector.classList.add('hidden');
+            }
+        }
+
+        // 切换权限单选框（旧函数，保留兼容性）
+        function switchPermissionRadio(permission) {
+            // 更新单选框标签样式
+            document.querySelectorAll('.permission-radio-label').forEach(label => {
+                label.classList.remove('border-blue-500', 'bg-blue-50');
+                label.classList.add('border-gray-200');
+                if (label.dataset.permission === permission) {
+                    label.classList.add('border-blue-500', 'bg-blue-50');
+                    label.classList.remove('border-gray-200');
+                }
+            });
+
+            // 显示/隐藏选择器
+            const deptSelector = document.getElementById('dept-selector');
+            const expertSelector = document.getElementById('expert-selector');
+
+            if (permission === 'dept') {
+                deptSelector.classList.remove('hidden');
+                expertSelector.classList.add('hidden');
+                // 清空专家选择
+                selectedExperts = [];
+                renderExpertTags();
+            } else if (permission === 'expert') {
+                deptSelector.classList.add('hidden');
+                expertSelector.classList.remove('hidden');
+                loadExpertOptions();
+                // 清空科室选择
+                selectedDepts = [];
+                renderDeptTags();
+            } else {
+                deptSelector.classList.add('hidden');
+                expertSelector.classList.add('hidden');
+                // 清空所有选择
+                selectedDepts = [];
+                selectedExperts = [];
+                renderDeptTags();
+                renderExpertTags();
+            }
+        }
+
+        // 切换权限按钮（新函数）
+        function switchPermissionBtn(permission) {
+            // 更新隐藏字段
+            const permissionValue = document.getElementById('permission-value');
+            if (permissionValue) {
+                permissionValue.value = permission;
+            }
+
+            // 更新按钮样式
+            document.querySelectorAll('.permission-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-600', 'text-white');
+                btn.classList.add('bg-white', 'text-gray-600');
+                if (btn.dataset.permission === permission) {
+                    btn.classList.add('active', 'bg-blue-600', 'text-white');
+                    btn.classList.remove('bg-white', 'text-gray-600');
+                }
+            });
+
+            // 显示/隐藏选择器
+            const deptSelector = document.getElementById('dept-selector');
+            const expertSelector = document.getElementById('expert-selector');
+
+            if (permission === 'dept') {
+                deptSelector.classList.remove('hidden');
+                expertSelector.classList.add('hidden');
+                // 清空专家选择
+                selectedExperts = [];
+                renderExpertTags();
+            } else if (permission === 'expert') {
+                deptSelector.classList.add('hidden');
+                expertSelector.classList.remove('hidden');
+                loadExpertOptions();
+                // 清空科室选择
+                selectedDepts = [];
+                renderDeptTags();
+            } else {
+                deptSelector.classList.add('hidden');
+                expertSelector.classList.add('hidden');
+                // 清空所有选择
+                selectedDepts = [];
+                selectedExperts = [];
+                renderDeptTags();
+                renderExpertTags();
+            }
+        }
+
+        // 加载专家选项
+        function loadExpertOptions() {
+            const select = document.getElementById('expert-select');
+            // 清空现有选项（保留第一个）
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            // 添加专家选项
+            expertsData.forEach(expert => {
+                const option = document.createElement('option');
+                option.value = expert.name;
+                option.textContent = `${expert.name} - ${expert.title} | ${expert.department} | ${expert.hospital}`;
+                select.appendChild(option);
+            });
+        }
+
+        // 处理科室选择
+        function handleDeptSelect(select) {
+            const value = select.value;
+            if (!value) return;
+
+            // 检查是否已选择
+            if (selectedDepts.includes(value)) {
+                alert('该科室已被选择');
+                select.value = '';
+                return;
+            }
+
+            selectedDepts.push(value);
+            renderDeptTags();
+            select.value = '';
+        }
+
+        // 渲染已选科室标签
+        function renderDeptTags() {
+            const container = document.getElementById('selected-dept-tags');
+            container.innerHTML = selectedDepts.map(dept => `
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ${dept}
+                    <button type="button" onclick="removeDept('${dept}')" class="ml-1.5 text-blue-600 hover:text-blue-900">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </span>
+            `).join('');
+        }
+
+        // 移除科室
+        function removeDept(dept) {
+            selectedDepts = selectedDepts.filter(d => d !== dept);
+            renderDeptTags();
+        }
+
+        // 处理专家选择
+        function handleExpertSelect(select) {
+            const value = select.value;
+            if (!value) return;
+
+            // 检查是否已选择
+            if (selectedExperts.includes(value)) {
+                alert('该专家已被选择');
+                select.value = '';
+                return;
+            }
+
+            selectedExperts.push(value);
+            renderExpertTags();
+            select.value = '';
+        }
+
+        // 渲染已选专家标签
+        function renderExpertTags() {
+            const container = document.getElementById('selected-expert-tags');
+            container.innerHTML = selectedExperts.map(expertName => {
+                const expert = expertsData.find(e => e.name === expertName);
+                return `
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        ${expertName}
+                        <span class="ml-1 text-green-600">(${expert ? expert.title : ''})</span>
+                        <button type="button" onclick="removeExpert('${expertName}')" class="ml-1.5 text-green-600 hover:text-green-900">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </span>
+                `;
+            }).join('');
+        }
+
+        // 移除专家
+        function removeExpert(expert) {
+            selectedExperts = selectedExperts.filter(e => e !== expert);
+            renderExpertTags();
+        }
+
+        // 当前显示的批注菜单
+        let currentAnnotationPopover = null;
+
+        // 显示批注悬浮操作菜单
+        function showAnnotationPopover(annotation, id, container) {
+            // 关闭已存在的菜单
+            closeAnnotationPopover();
+
+            // 创建菜单元素
+            const popover = document.createElement('div');
+            popover.className = 'annotation-popover';
+            popover.innerHTML = `
+                <button class="annotation-popover-btn delete" onclick="event.stopPropagation(); deleteAnnotation('${id}');">
+                    <i class="fas fa-trash-alt"></i>
+                    <span>删除</span>
+                </button>
+            `;
+
+            // 计算菜单位置
+            const annotationRect = annotation.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const popoverHeight = 50; // 预估菜单高度
+            const popoverWidth = 120; // 预估菜单宽度
+            const offset = 10; // 与批注的间距
+
+            // 默认显示在批注上方
+            let top = annotationRect.top - containerRect.top - popoverHeight - offset;
+            let showAbove = true;
+
+            // 如果上方空间不足，则显示在下方
+            if (top < 0) {
+                top = annotationRect.bottom - containerRect.top + offset;
+                showAbove = false;
+            }
+
+            // 水平居中
+            let left = annotationRect.left - containerRect.left + (annotationRect.width / 2) - (popoverWidth / 2);
+
+            // 确保不超出容器边界
+            if (left < 5) {
+                left = 5;
+            } else if (left + popoverWidth > containerRect.width - 5) {
+                left = containerRect.width - popoverWidth - 5;
+            }
+
+            popover.style.top = top + 'px';
+            popover.style.left = left + 'px';
+
+            // 根据显示位置添加相应类名
+            if (!showAbove) {
+                popover.classList.add('above');
+            }
+
+            // 添加到容器
+            container.appendChild(popover);
+            currentAnnotationPopover = popover;
+        }
+
+        // 关闭批注悬浮操作菜单
+        function closeAnnotationPopover() {
+            if (currentAnnotationPopover) {
+                currentAnnotationPopover.remove();
+                currentAnnotationPopover = null;
+            }
+        }
+
+        // 删除批注
+        function deleteAnnotation(id) {
+            if (confirm('确定要删除该批注吗？')) {
+                // 关闭菜单
+                closeAnnotationPopover();
+
+                // 删除画布上的批注元素
+                const detailImageContainer = document.getElementById('detail-image-container');
+                const annotation = detailImageContainer.querySelector(`.annotation[data-id="${id}"]`);
+                if (annotation) {
+                    annotation.remove();
+                }
+
+                // 删除批注列表中的对应项
+                const detailAnnotationList = document.getElementById('detail-annotation-list');
+                const annotationItem = detailAnnotationList.querySelector(`.annotation-item[data-id="${id}"]`);
+                if (annotationItem) {
+                    annotationItem.remove();
+                }
+
+                // 如果批注列表为空，显示提示文本
+                if (detailAnnotationList.children.length === 0) {
+                    detailAnnotationList.innerHTML = '<p class="text-gray-500 text-sm">暂无影像批注</p>';
+                }
+            }
+        }
+
+        // 设置导航功能
+        function setupNavigation() {
+            const sidebarItems = document.querySelectorAll('.sidebar-item');
+            sidebarItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // 移除所有激活状态
+                    sidebarItems.forEach(i => i.classList.remove('active'));
+                    // 添加当前激活状态
+                    this.classList.add('active');
+
+                    const tab = this.dataset.tab;
+                    switchView(tab);
+                });
+            });
+        }
+
+        // 打开原始报告模态框
+        function openOriginalReportModal() {
+            const caseItem = mockCases.find(c => c.id === currentCaseId);
+            if (!caseItem || !caseItem.originalReport) {
+                alert('暂无原始报告内容');
+                return;
+            }
+
+            document.getElementById('original-report-content').textContent = caseItem.originalReport;
+            const modal = document.getElementById('original-report-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // 关闭原始报告模态框
+        function closeOriginalReportModal() {
+            const modal = document.getElementById('original-report-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // 打印原始报告
+        function printOriginalReport() {
+            const content = document.getElementById('original-report-content').textContent;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>原始检查报告</title>
+                    <style>
+                        body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; padding: 40px; line-height: 1.6; }
+                        h1 { text-align: center; color: #333; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+                        .content { white-space: pre-wrap; margin-top: 20px; }
+                        .footer { margin-top: 40px; text-align: right; color: #666; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <h1>原始检查报告</h1>
+                    <div class="content">${content}</div>
+                    <div class="footer">打印时间：${new Date().toLocaleString()}</div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+    </script>
+</body>
+</html>

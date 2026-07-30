@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XX省影像云平台 - 患者主索引管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'medical': {
+                            50: '#e6f4ff', 100: '#bae0ff', 200: '#91caff',
+                            300: '#69b1ff', 400: '#4096ff', 500: '#1677ff',
+                            600: '#0958d9', 700: '#003eb3', 800: '#002c8c', 900: '#001d66',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+        body { background: linear-gradient(135deg, #f0f5ff 0%, #f6f8fc 50%, #f0f7ff 100%); }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+        .sidebar-item {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 10px; margin: 2px 8px;
+        }
+        .sidebar-item:hover {
+            background: linear-gradient(90deg, rgba(24, 144, 255, 0.08) 0%, transparent 100%);
+            color: #1890ff;
+        }
+        .sidebar-item.active {
+            background: linear-gradient(90deg, rgba(24, 144, 255, 0.12) 0%, rgba(24, 144, 255, 0.04) 100%);
+            color: #1890ff; border-left: 3px solid #1890ff;
+        }
+        .table-row-hover { transition: all 0.15s ease; }
+        .table-row-hover:hover { background: linear-gradient(90deg, rgba(24, 144, 255, 0.04) 0%, rgba(24, 144, 255, 0.01) 100%); }
+        .page-transition { animation: fadeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        
+        /* 滑块样式 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #1677ff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 6px rgba(22, 119, 255, 0.3);
+            border-color: #0958d9;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #1677ff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-moz-range-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 6px rgba(22, 119, 255, 0.3);
+            border-color: #0958d9;
+        }
+        
+        /* 阈值显示值样式 */
+        .threshold-value-display {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 48px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .threshold-value-display.different {
+            border-color: #ef4444;
+            color: #dc2626;
+        }
+        
+        .threshold-value-display.suspect {
+            border-color: #f97316;
+            color: #ea580c;
+        }
+        
+        .threshold-value-display.merge {
+            border-color: #22c55e;
+            color: #16a34a;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="app" class="flex min-h-screen">
+        <!-- 左侧导航栏 -->
+        <aside class="w-64 bg-white flex flex-col shadow-lg z-20 fixed h-full">
+            <div class="p-5 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-medical-500 to-medical-700 flex items-center justify-center shadow-lg">
+                        <i class="fas fa-cloud text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-sm font-bold text-slate-800">XX省影像云</h1>
+                        <p class="text-xs text-slate-400">患者主索引平台</p>
+                    </div>
+                </div>
+            </div>
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <div class="px-4 mb-3">
+                    <span class="text-xs font-medium text-slate-400 uppercase">核心功能</span>
+                </div>
+                <div class="space-y-1">
+                    <a href="#" onclick="showView('list')" class="sidebar-item active flex items-center gap-3 px-4 py-3 text-slate-700" id="nav-list">
+                        <i class="fas fa-users w-5 text-center"></i><span>患者主索引列表</span>
+                    </a>
+                    <a href="#" onclick="showView('config')" class="sidebar-item flex items-center gap-3 px-4 py-3 text-slate-700" id="nav-config">
+                        <i class="fas fa-cog w-5 text-center"></i><span>主索引配置</span>
+                    </a>
+                </div>
+            </nav>
+            <div class="p-4 border-t border-slate-100">
+                <div class="bg-slate-50 rounded-xl p-3">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
+                        <span class="text-xs text-slate-600 font-medium">系统运行正常</span>
+                    </div>
+                    <div class="text-xs text-slate-400">
+                        <p>HL7网关: <span class="text-green-500">在线</span></p>
+                        <p>EMPI服务: <span class="text-green-500">在线</span></p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="flex-1 ml-64">
+            <!-- 顶部Header -->
+            <header class="bg-white/80 backdrop-blur-lg border-b border-slate-100 sticky top-0 z-10">
+                <div class="flex items-center justify-between px-6 py-4">
+                    <div class="flex items-center gap-4">
+                        <nav class="flex items-center text-sm">
+                            <span class="text-slate-400 hover:text-slate-600 cursor-pointer">首页</span>
+                            <i class="fas fa-chevron-right text-xs mx-3 text-slate-300"></i>
+                            <span class="text-slate-600 font-medium" id="breadcrumb-current">患者主索引列表</span>
+                        </nav>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="relative">
+                            <button class="p-2 rounded-lg hover:bg-slate-100 text-slate-500 relative">
+                                <i class="fas fa-bell"></i>
+                                <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            </button>
+                        </div>
+                        <div class="h-6 w-px bg-slate-200"></div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center text-white text-sm font-medium">管</div>
+                            <div>
+                                <p class="text-sm font-medium text-slate-700">系统管理员</p>
+                                <p class="text-xs text-slate-400">admin@xxmedcloud.cn</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 视图一：患者主索引列表页 -->
+            <div id="view-list" class="page-transition p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">患者主索引列表</h2>
+                    <p class="text-slate-500 mt-1">管理全省跨院患者主索引(EMPI)信息，实现医疗数据互联互通</p>
+                </div>
+
+                <!-- 统计卡片 -->
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500 mb-1">EMPI总量</p>
+                                <p class="text-3xl font-bold text-slate-800">2,847,392</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-medical-50 flex items-center justify-center">
+                                <i class="fas fa-database text-medical-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500 mb-1">今日新增</p>
+                                <p class="text-3xl font-bold text-slate-800">1,247</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
+                                <i class="fas fa-user-plus text-green-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500 mb-1">检查总量</p>
+                                <p class="text-3xl font-bold text-slate-800">1,245,678</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center">
+                                <i class="fas fa-file-medical text-purple-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-slate-500 mb-1">影像总量</p>
+                                <p class="text-3xl font-bold text-slate-800">892,456</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
+                                <i class="fas fa-film text-orange-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 搜索筛选区 -->
+                <div class="glass-card rounded-2xl p-6 mb-6">
+                    <div class="grid grid-cols-12 gap-4">
+                        <!-- 第一行：基础信息 -->
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-500 mb-2">患者姓名</label>
+                            <input type="text" id="search-name" placeholder="请输入患者姓名" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                        </div>
+                        <div class="col-span-3">
+                            <label class="block text-xs text-slate-500 mb-2">主索引号(EMPI)</label>
+                            <input type="text" id="search-empi" placeholder="请输入主索引号" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                        </div>
+                        <div class="col-span-3">
+                            <label class="block text-xs text-slate-500 mb-2">证件号码</label>
+                            <input type="text" id="search-idcard" placeholder="请输入身份证号" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs text-slate-500 mb-2">出生日期</label>
+                            <input type="date" id="search-birthdate" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                        </div>
+                        <div class="col-span-2 flex items-end gap-2">
+                            <button onclick="resetSearch()" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">
+                                <i class="fas fa-redo mr-1.5"></i>重置
+                            </button>
+                            <button onclick="searchPatients()" class="flex-1 px-4 py-2.5 rounded-xl bg-medical-500 text-white text-sm font-medium hover:bg-medical-600 transition-colors">
+                                <i class="fas fa-search mr-1.5"></i>查询
+                            </button>
+                        </div>
+
+                        <!-- 第二行：扩展信息 -->
+                        <div class="col-span-3">
+                            <label class="block text-xs text-slate-500 mb-2">社保卡号</label>
+                            <input type="text" id="search-social-security" placeholder="请输入社保卡号" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                        </div>
+                        <div class="col-span-3">
+                            <label class="block text-xs text-slate-500 mb-2">联系电话</label>
+                            <input type="text" id="search-phone" placeholder="请输入联系电话" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                        </div>
+                        <div class="col-span-3">
+                            <label class="block text-xs text-slate-500 mb-2">就诊医院</label>
+                            <select id="search-hospital" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-medical-400 outline-none text-sm bg-white">
+                                <option value="">全部医院</option>
+                                <option value="XX省人民医院">XX省人民医院</option>
+                                <option value="XX大学附属第一医院">XX大学附属第一医院</option>
+                                <option value="XX医科大学XX医院">XX医科大学XX医院</option>
+                                <option value="XX市第一人民医院">XX市第一人民医院</option>
+                                <option value="XX省中医院">XX省中医院</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据表格区 -->
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <h3 class="font-semibold text-slate-800">患者主索引列表</h3>
+                            <span class="px-2.5 py-1 rounded-full bg-medical-50 text-medical-600 text-xs font-medium">共 2,847,392 条</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-slate-50/80">
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">序号</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">主索引号(EMPI)</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">患者姓名</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">性别</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">出生日期</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">证件号码</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">社保卡号</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">联系电话</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">检查总量</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">就诊医院数</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100" id="patient-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 视图二：患者详情页面 -->
+            <div id="view-detail" class="page-transition hidden">
+                <!-- 顶部全局头部：患者核心基本信息 -->
+                <div class="bg-white border-b border-slate-200 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <!-- 左侧：返回按钮 + 患者基本信息 -->
+                        <div class="flex items-center gap-6">
+                            <button onclick="showView('list')" class="flex items-center gap-2 text-slate-500 hover:text-medical-600 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors">
+                                <i class="fas fa-arrow-left"></i>
+                                <span>返回患者列表</span>
+                            </button>
+                            <div class="h-8 w-px bg-slate-200"></div>
+                            <!-- 患者核心信息 -->
+                            <div class="flex items-center gap-5">
+                                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center text-white text-lg font-bold shadow-md">
+                                    张
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <div class="flex items-center gap-3">
+                                        <h1 id="header-name" class="text-lg font-bold text-slate-800">张**</h1>
+                                        <span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-xs font-medium">男</span>
+                                        <span class="text-xs text-slate-400">|</span>
+                                        <span class="text-xs text-slate-500">EMPI: <span class="font-mono text-medical-600 font-medium">EMPI202403150001</span></span>
+                                    </div>
+                                    <div class="flex items-center gap-4 text-xs">
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-slate-400">证件号码:</span>
+                                            <span id="header-idcard" class="font-mono text-slate-600">44010319810315****</span>
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-slate-400">社保卡号:</span>
+                                            <span id="header-social-security" class="font-mono text-slate-600">4401031981******</span>
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-slate-400">电话:</span>
+                                            <span id="header-phone" class="text-slate-600">1380013****</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- 右侧：隐私保护按钮 -->
+                        <div class="flex items-center gap-3">
+                            <button onclick="toggleGlobalPrivacy()" id="global-privacy-btn" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                <i id="global-privacy-icon" class="fas fa-eye text-medical-500"></i>
+                                <span id="global-privacy-text">显示隐私信息</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 主体布局：左右分栏 -->
+                <div class="flex" style="height: calc(100vh - 140px);">
+                    <!-- 左侧栏：按城市分组的就诊医院清单 -->
+                    <div class="w-72 flex-shrink-0 bg-slate-50 border-r border-slate-200 overflow-y-auto">
+                        <div class="p-4">
+                            <h3 class="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                                <i class="fas fa-hospital text-medical-500"></i>
+                                就诊医院清单
+                            </h3>
+                            <div id="hospital-list-container" class="space-y-3">
+                                <!-- 动态生成城市分组 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧栏：上下分栏 -->
+                    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+                        <!-- 右上方：选中医院的特定患者信息 -->
+                        <div class="flex-shrink-0 bg-white border-b border-slate-200">
+                            <div id="hospital-patient-info" class="p-4">
+                                <!-- 动态生成医院特定患者信息 -->
+                            </div>
+                        </div>
+
+                        <!-- 右下方：检查记录列表 -->
+                        <div class="flex-1 overflow-hidden bg-slate-50">
+                            <div class="h-full flex flex-col p-4">
+                                <!-- 表格头部工具栏 -->
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center gap-4">
+                                        <h3 class="text-base font-semibold text-slate-800">检查记录</h3>
+                                        <span id="table-record-count" class="text-xs text-slate-500">共 0 条记录</span>
+                                    </div>
+                                </div>
+
+                                <!-- 筛选栏 -->
+                                <div class="flex items-center gap-3 mb-3 p-2 bg-white rounded-lg border border-slate-200">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs text-slate-500">类型:</span>
+                                        <select id="record-filter" onchange="renderExamTable()" class="text-xs border-slate-200 rounded-lg focus:ring-medical-500 focus:border-medical-500">
+                                            <option value="all">全部类型</option>
+                                            <option value="CT">CT</option>
+                                            <option value="MRI">MRI</option>
+                                            <option value="DSA">DSA</option>
+                                            <option value="DR">DR</option>
+                                            <option value="特殊X光">特殊X光</option>
+                                            <option value="超声">超声</option>
+                                            <option value="病理">病理</option>
+                                            <option value="内镜">内镜</option>
+                                            <option value="核医学">核医学</option>
+                                            <option value="其他">其他</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-2 ml-auto">
+                                        <span class="text-xs text-slate-500">排序:</span>
+                                        <select id="sort-order" onchange="renderExamTable()" class="text-xs border-slate-200 rounded-lg focus:ring-medical-500 focus:border-medical-500">
+                                            <option value="desc">时间倒序</option>
+                                            <option value="asc">时间正序</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- 表格形式检查记录列表 -->
+                                <div class="flex-1 overflow-auto bg-white rounded-lg border border-slate-200">
+                                    <table class="w-full text-sm">
+                                        <thead class="bg-slate-50 sticky top-0 z-10">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">检查时间</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">检查类型</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">检查部位</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">检查项目</th>
+                                                <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">报告状态</th>
+                                                <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">影像状态</th>
+                                                <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="exam-table-body" class="divide-y divide-slate-200">
+                                            <!-- 动态生成表格行 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 视图三：主索引配置页面 -->
+            <div id="view-config" class="page-transition hidden">
+                <div class="flex h-[calc(100vh-80px)] gap-4 p-4">
+                    <!-- 左侧配置区域 (70%) -->
+                    <div class="w-[70%] flex-shrink-0 overflow-y-auto pr-2">
+                        <div class="mb-3">
+                            <h2 class="text-lg font-bold text-slate-800">主索引配置</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">配置 EMPI 主索引生成规则、匹配算法和阈值参数</p>
+                        </div>
+
+                        <!-- 基础设置 -->
+                        <div class="glass-card rounded-xl p-4 mb-3">
+                            <h3 class="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                                <i class="fas fa-sliders-h text-medical-500 text-xs"></i>基础设置
+                            </h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-slate-600 mb-1">主索引号位数</label>
+                                    <input type="number" id="config-empi-length" value="16" min="8" max="32" 
+                                        class="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-medical-400 outline-none text-sm">
+                                    <p class="text-xs text-slate-400 mt-0.5">建议设置为 16 位，范围 8-32 位</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 匹配规则流程图 -->
+                        <div class="glass-card rounded-xl p-4 mb-3">
+                            <h3 class="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                                <i class="fas fa-sitemap text-medical-500 text-xs"></i>匹配规则优先级
+                            </h3>
+                            
+                            <!-- 流程步骤 -->
+                            <div class="relative">
+                                <!-- 流程连接线 -->
+                                <div class="absolute left-5 top-8 bottom-8 w-0.5 bg-gradient-to-b from-medical-400 via-medical-400 to-slate-300"></div>
+                                
+                                <!-- 步骤1: 证件号码 -->
+                                <div class="relative flex items-start gap-4 mb-4">
+                                    <div class="relative z-10 w-10 h-10 rounded-full bg-medical-500 text-white flex items-center justify-center font-bold text-sm shadow-lg">
+                                        1
+                                    </div>
+                                    <div class="flex-1 bg-medical-50 rounded-xl p-3 border border-medical-100">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fas fa-id-card text-medical-600"></i>
+                                                <span class="text-sm font-semibold text-slate-800">证件号码匹配</span>
+                                                <span class="px-2 py-0.5 bg-medical-100 text-medical-700 text-xs rounded-full">最高优先级</span>
+                                            </div>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="strong-rule-idcard" class="sr-only peer" checked>
+                                                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-medical-500"></div>
+                                            </label>
+                                        </div>
+                                        <p class="text-xs text-slate-500">身份证号、护照号等证件号码完全一致时，<span class="text-medical-600 font-medium">直接判定为同一患者</span></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 步骤2: 社保卡号 -->
+                                <div class="relative flex items-start gap-4 mb-4">
+                                    <div class="relative z-10 w-10 h-10 rounded-full bg-medical-400 text-white flex items-center justify-center font-bold text-sm shadow-lg">
+                                        2
+                                    </div>
+                                    <div class="flex-1 bg-blue-50 rounded-xl p-3 border border-blue-100">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fas fa-credit-card text-blue-600"></i>
+                                                <span class="text-sm font-semibold text-slate-800">社保卡号匹配</span>
+                                                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">第二优先级</span>
+                                            </div>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="strong-rule-social" class="sr-only peer" checked>
+                                                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                                            </label>
+                                        </div>
+                                        <p class="text-xs text-slate-500">社会保障卡号完全一致时，<span class="text-blue-600 font-medium">直接判定为同一患者</span>（证件号未匹配时）</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- 步骤3: 加权规则 -->
+                                <div class="relative flex items-start gap-4">
+                                    <div class="relative z-10 w-10 h-10 rounded-full bg-slate-400 text-white flex items-center justify-center font-bold text-sm shadow-lg">
+                                        3
+                                    </div>
+                                    <div class="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fas fa-balance-scale text-slate-600"></i>
+                                                <span class="text-sm font-semibold text-slate-800">加权规则匹配</span>
+                                                <span class="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs rounded-full">后备匹配</span>
+                                            </div>
+                                            <button onclick="openAddRuleModal()" class="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-100 flex items-center gap-1">
+                                                <i class="fas fa-cog text-xs"></i>配置规则
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mb-2">当强匹配规则均未命中时，系统根据以下字段权重计算匹配得分</p>
+                                        
+                                        <!-- 加权规则列表 -->
+                                        <div id="weighted-rules-list" class="space-y-1.5 max-h-48 overflow-y-auto bg-white rounded-lg p-2 border border-slate-100 mb-3">
+                                            <!-- 动态生成的规则列表 -->
+                                        </div>
+                                        
+                                        <!-- 自动合并门槛 - 嵌入在加权规则模块内 -->
+                                        <div class="mt-3 pt-3 border-t border-slate-200">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                                    <i class="fas fa-sliders-h text-medical-500 text-xs"></i>自动合并门槛
+                                                </h4>
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="text-xs text-slate-500">当前阈值:</span>
+                                                    <span id="threshold-display" class="px-1.5 py-0.5 bg-medical-100 text-medical-700 text-xs font-bold rounded">75分</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 两段式滑动条 -->
+                                            <div class="relative px-2 mb-3">
+                                                <!-- 轨道背景 -->
+                                                <div class="relative h-3 rounded-full overflow-hidden">
+                                                    <!-- 红色区域: 不同患者 -->
+                                                    <div id="track-red" class="absolute left-0 top-0 h-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-300" style="width: 75%;"></div>
+                                                    <!-- 绿色区域: 自动合并 -->
+                                                    <div id="track-green" class="absolute right-0 top-0 h-full bg-gradient-to-r from-green-500 to-green-400 transition-all duration-300" style="width: 25%;"></div>
+                                                </div>
+                                                
+                                                <!-- 滑块把手 -->
+                                                <div id="threshold-slider" class="absolute top-1/2 -translate-y-1/2 cursor-pointer group" style="left: 75%;">
+                                                    <div class="relative -ml-2.5">
+                                                        <!-- 滑块主体 -->
+                                                        <div class="w-5 h-5 bg-white rounded-full border-3 border-medical-500 shadow-md group-hover:scale-110 transition-transform flex items-center justify-center">
+                                                            <div class="w-1 h-1 bg-medical-500 rounded-full"></div>
+                                                        </div>
+                                                        <!-- 悬浮提示 -->
+                                                        <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                                            拖拽调整
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- 刻度标记 -->
+                                                <div class="flex justify-between mt-1.5 text-[10px] text-slate-400">
+                                                    <span>0</span>
+                                                    <span>50</span>
+                                                    <span>100</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 区域说明 - 紧凑版 -->
+                                            <div class="flex items-center justify-between text-xs">
+                                                <div class="flex items-center gap-1.5">
+                                                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                                    <span class="text-slate-600">&lt; <span id="threshold-value-red">75</span>分: 不同患者</span>
+                                                </div>
+                                                <div class="flex items-center gap-1.5">
+                                                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                                                    <span class="text-slate-600">≥ <span id="threshold-value-green">75</span>分: 自动合并</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 推荐值快捷选择 -->
+                                            <div class="flex items-center gap-2 mt-2">
+                                                <span class="text-xs text-slate-500">推荐:</span>
+                                                <button onclick="setThreshold(70)" class="px-1.5 py-0.5 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors">保守70</button>
+                                                <button onclick="setThreshold(75)" class="px-1.5 py-0.5 text-[10px] bg-medical-100 hover:bg-medical-200 text-medical-700 rounded transition-colors font-medium">标准75</button>
+                                                <button onclick="setThreshold(80)" class="px-1.5 py-0.5 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors">宽松80</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 隐藏的输入框（保持JS兼容性） -->
+                        <div class="hidden">
+                            <input type="number" id="threshold-different" value="40" min="0" max="100">
+                            <input type="number" id="threshold-suspect-low" value="75" min="0" max="100">
+                            <input type="number" id="threshold-suspect-high" value="75" min="0" max="100">
+                            <input type="number" id="threshold-auto-merge" value="75" min="0" max="100">
+                            <input type="number" id="threshold-suspect-low-display" value="75">
+                            <input type="number" id="threshold-suspect-high-display" value="75">
+                        </div>
+
+                        <!-- 保存按钮 -->
+                        <div class="flex justify-end gap-3 pb-4">
+                            <button onclick="resetConfig()" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">
+                                重置默认
+                            </button>
+                            <button onclick="saveConfig()" class="px-4 py-2 rounded-lg bg-medical-500 text-white text-sm font-medium hover:bg-medical-600">
+                                <i class="fas fa-save mr-1.5"></i>保存配置
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 右侧沙盒试算面板 (30%) -->
+                    <div class="w-[30%] flex-shrink-0 overflow-y-auto pl-2 border-l border-slate-200">
+                        <div class="sticky top-0">
+                            <div class="flex items-center gap-2 mb-4">
+                                <div class="w-7 h-7 rounded-lg bg-medical-500 flex items-center justify-center">
+                                    <i class="fas fa-flask text-white text-sm"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-semibold text-slate-800">EMPI 规则模拟器</h3>
+                                    <p class="text-xs text-slate-500">实时试算匹配得分</p>
+                                </div>
+                            </div>
+
+                            <!-- 患者 A 表单 -->
+                            <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 mb-3">
+                                <h4 class="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center">A</span>
+                                    患者 A
+                                </h4>
+                                <div class="space-y-2">
+                                    <div>
+                                        <label class="block text-[11px] text-slate-500 mb-0.5">姓名</label>
+                                        <input type="text" id="sandbox-a-name" placeholder="请输入姓名" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[11px] text-slate-500 mb-0.5">性别</label>
+                                            <select id="sandbox-a-gender" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs bg-white">
+                                                <option value="">请选择</option>
+                                                <option value="男">男</option>
+                                                <option value="女">女</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] text-slate-500 mb-0.5">出生日期</label>
+                                            <input type="date" id="sandbox-a-birthdate" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-slate-500 mb-0.5">手机号码</label>
+                                        <input type="text" id="sandbox-a-phone" placeholder="请输入手机号" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-slate-500 mb-0.5">社保卡号</label>
+                                        <input type="text" id="sandbox-a-social" placeholder="请输入社保卡号" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 患者 B 表单 -->
+                            <div class="bg-slate-50 rounded-lg p-3 border border-slate-200 mb-3">
+                                <h4 class="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                                    <span class="w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] flex items-center justify-center">B</span>
+                                    患者 B
+                                </h4>
+                                <div class="space-y-2">
+                                    <div>
+                                        <label class="block text-[11px] text-slate-500 mb-0.5">姓名</label>
+                                        <input type="text" id="sandbox-b-name" placeholder="请输入姓名" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-[11px] text-slate-500 mb-0.5">性别</label>
+                                            <select id="sandbox-b-gender" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs bg-white">
+                                                <option value="">请选择</option>
+                                                <option value="男">男</option>
+                                                <option value="女">女</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] text-slate-500 mb-0.5">出生日期</label>
+                                            <input type="date" id="sandbox-b-birthdate" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-slate-500 mb-0.5">手机号码</label>
+                                        <input type="text" id="sandbox-b-phone" placeholder="请输入手机号" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] text-slate-500 mb-0.5">社保卡号</label>
+                                        <input type="text" id="sandbox-b-social" placeholder="请输入社保卡号" class="w-full px-2.5 py-1.5 rounded border border-slate-200 focus:border-medical-400 outline-none text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 开始模拟按钮 -->
+                            <button onclick="runSimulation()" class="w-full py-2 rounded-lg bg-gradient-to-r from-medical-500 to-medical-600 text-white text-xs font-medium hover:from-medical-600 hover:to-medical-700 transition-all shadow-md shadow-medical-100 mb-3">
+                                <i class="fas fa-play-circle mr-1"></i>开始模拟
+                            </button>
+
+                            <!-- 计算结果展示区 -->
+                            <div id="simulation-result" class="hidden">
+                                <div class="bg-gradient-to-br from-slate-50 to-medical-50 rounded-lg p-3 border border-medical-100">
+                                    <h4 class="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                                        <i class="fas fa-calculator text-medical-500"></i>计算结果
+                                    </h4>
+                                    <div id="result-content" class="space-y-2">
+                                        <!-- 动态生成结果 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toast 提示 -->
+            <div id="toast-container" class="fixed top-20 right-6 z-[60] space-y-3"></div>
+        </main>
+    </div>
+
+    <script>
+        // ==================== Mock数据 ====================
+        const patientData = [
+            { id: 1, empi: 'EMPI202403150001', name: '张XX', gender: '男', birthDate: '1981-03-15', idcard: '440103198103XXXX', socialSecurityCard: '440103198103XXXX', phone: '138XXXX5678', totalExams: 15, hospitalCount: 5, lastVisit: '2026-04-08 09:30', hospitals: ['XX省人民医院', 'XX大学附属第一医院', 'XX医科大学XX医院', 'XX市第一人民医院', 'XX省中医院'] },
+            { id: 2, empi: 'EMPI202403150002', name: '李XX', gender: '女', birthDate: '1988-07-22', idcard: '440106198807XXXX', socialSecurityCard: '440106198807XXXX', phone: '139XXXX9876', totalExams: 12, hospitalCount: 3, lastVisit: '2026-04-07 14:20', hospitals: ['XX大学附属第一医院', 'XX省中医院'] },
+            { id: 3, empi: 'EMPI202403150003', name: '王XX', gender: '男', birthDate: '1974-11-08', idcard: '440104197411XXXX', socialSecurityCard: '440104197411XXXX', phone: '136XXXX6789', totalExams: 22, hospitalCount: 4, lastVisit: '2026-04-06 11:45', hospitals: ['XX医科大学XX医院', 'XX省人民医院'] },
+            { id: 4, empi: 'EMPI202403150004', name: '陈XX', gender: '女', birthDate: '1997-05-16', idcard: '440111199705XXXX', socialSecurityCard: '440111199705XXXX', phone: '137XXXX3789', totalExams: 8, hospitalCount: 2, lastVisit: '2026-04-05 16:30', hospitals: ['XX市第一人民医院'] },
+            { id: 5, empi: 'EMPI202403150005', name: '刘XX', gender: '男', birthDate: '1965-09-03', idcard: '440105196509XXXX', socialSecurityCard: '440105196509XXXX', phone: '135XXXX5678', totalExams: 18, hospitalCount: 3, lastVisit: '2026-04-04 10:15', hospitals: ['XX省中医院', 'XX省人民医院'] },
+        ];
+
+        // 医院数据（按城市分组）
+        const hospitalData = {
+            'A市': [
+                {
+                    id: 'GDSPH',
+                    name: 'XX省人民医院',
+                    domainId: 'GDSPH',
+                    city: 'A市',
+                    patientInfo: {
+                        patientId: 'P20240315001',
+                        name: '张XX',
+                        gender: '男',
+                        birthDate: '1981-03-15',
+                        idCard: '440103198103XXXX',
+                        socialSecurityCard: '440103198103XXXX',
+                        medicalCard: 'A123456789',
+                        phone: '138XXXX0001',
+                        address: 'A市XX区XX路XX号大院X栋XXX室',
+                        firstVisit: '2020-03-15',
+                        lastVisit: '2026-04-08',
+                        totalRecords: 8,
+                        hl7Status: '已同步',
+                        lastSync: '2026-04-08 10:30:00'
+                    }
+                },
+                {
+                    id: 'ZSYY',
+                    name: 'XX大学附属第一医院',
+                    domainId: 'ZSYY',
+                    city: 'A市',
+                    patientInfo: {
+                        patientId: 'ZS20240228001',
+                        name: '张XX',
+                        gender: '男',
+                        birthDate: '1981-03-15',
+                        idCard: '440103198103XXXX',
+                        socialSecurityCard: '440103198103XXXX',
+                        medicalCard: 'B987654321',
+                        phone: '138XXXX0002',
+                        address: 'A市XX区XX路XX号A座XXXX',
+                        firstVisit: '2021-06-20',
+                        lastVisit: '2026-03-15',
+                        totalRecords: 5,
+                        hl7Status: '已同步',
+                        lastSync: '2026-03-15 16:45:00'
+                    }
+                },
+                {
+                    id: 'NFYY',
+                    name: 'XX医科大学XX医院',
+                    domainId: 'NFYY',
+                    city: 'A市',
+                    patientInfo: {
+                        patientId: 'NF20251205001',
+                        name: '张XX',
+                        gender: '男',
+                        birthDate: '1981-03-15',
+                        idCard: '440103198103XXXX',
+                        socialSecurityCard: '440103198103XXXX',
+                        medicalCard: 'C456789123',
+                        phone: '138XXXX0003',
+                        address: 'A市XX区XX路XX花园X栋XXX',
+                        firstVisit: '2022-01-10',
+                        lastVisit: '2026-02-28',
+                        totalRecords: 4,
+                        hl7Status: '已同步',
+                        lastSync: '2026-02-28 14:20:00'
+                    }
+                },
+                {
+                    id: 'GZYY',
+                    name: 'XX市第一人民医院',
+                    domainId: 'GZYY',
+                    city: 'A市',
+                    patientInfo: {
+                        patientId: 'GZ20240315001',
+                        name: '张XX',
+                        gender: '男',
+                        birthDate: '1981-03-15',
+                        idCard: '440103198103XXXX',
+                        socialSecurityCard: '440103198103XXXX',
+                        medicalCard: 'D789123456',
+                        phone: '138XXXX0004',
+                        address: 'A市XX区XX路XX雅苑XX栋XXX',
+                        firstVisit: '2019-11-05',
+                        lastVisit: '2026-03-28',
+                        totalRecords: 3,
+                        hl7Status: '同步中',
+                        lastSync: '2026-03-28 09:15:00'
+                    }
+                },
+                {
+                    id: 'GDZY',
+                    name: 'XX省中医院',
+                    domainId: 'GDZY',
+                    city: 'A市',
+                    patientInfo: {
+                        patientId: 'ZY20260112001',
+                        name: '张XX',
+                        gender: '男',
+                        birthDate: '1981-03-15',
+                        idCard: '440103198103XXXX',
+                        socialSecurityCard: '440103198103XXXX',
+                        medicalCard: 'E321654987',
+                        phone: '138XXXX0005',
+                        address: 'A市XX区XX路XX小区X栋XXX',
+                        firstVisit: '2023-08-15',
+                        lastVisit: '2026-01-12',
+                        totalRecords: 2,
+                        hl7Status: '待同步',
+                        lastSync: '2026-01-12 11:30:00'
+                    }
+                }
+            ],
+            'B市': [
+                {
+                    id: 'SZRM',
+                    name: 'XX市人民医院',
+                    domainId: 'SZRM',
+                    city: 'B市',
+                    patientInfo: {
+                        patientId: 'SZ20250110001',
+                        name: '张XX',
+                        gender: '男',
+                        birthDate: '1981-03-15',
+                        idCard: '440103198103XXXX',
+                        socialSecurityCard: '440103198103XXXX',
+                        medicalCard: 'F147258369',
+                        phone: '138XXXX0006',
+                        address: 'B市XX区XX路XX花园X栋XXXX',
+                        firstVisit: '2024-05-20',
+                        lastVisit: '2025-01-10',
+                        totalRecords: 3,
+                        hl7Status: '已同步',
+                        lastSync: '2025-01-10 15:45:00'
+                    }
+                }
+            ]
+        };
+
+        let selectedHospitalId = null;
+        // 城市分组折叠状态
+        const cityCollapseState = {};
+
+        // 检查记录数据（标准检查类型分类）
+        const examRecordsData = [
+            // CT - 计算机X线断层摄影
+            { id: 'R001', date: '2026-04-08 09:30', type: 'CT', name: '胸部CT平扫(64排)', part: '胸部', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '右肺上叶结节，建议随访', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R002', date: '2026-01-20 15:45', type: 'CT', name: '上腹部CT平扫', part: '腹部', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '肝脏密度减低', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R003', date: '2025-12-10 16:20', type: 'CT', name: '胸部CT平扫(64排)', part: '胸部', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '右肺上叶小结节', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // MRI - 核磁共振成像
+            { id: 'R004', date: '2026-03-20 14:32', type: 'MRI', name: '颅脑MRI增强(3.0T)', part: '头部', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '未见明显异常', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R005', date: '2026-02-28 10:30', type: 'MRI', name: '腰椎MRI平扫(3.0T)', part: '腰椎', hospital: 'XX医科大学XX医院', domainId: 'NFYY', result: '腰椎间盘突出(L4/5)', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R006', date: '2025-07-18 08:30', type: 'MRI', name: '颈椎MRI平扫', part: '颈椎', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '颈椎间盘突出(C5/6)', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // DSA - 数字减影血管造影
+            { id: 'R007', date: '2026-02-10 09:00', type: 'DSA', name: '冠状动脉造影', part: '心脏', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '冠状动脉轻度狭窄', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R008', date: '2025-11-15 14:30', type: 'DSA', name: '脑血管造影', part: '头部', hospital: 'XX医科大学XX医院', domainId: 'NFYY', result: '脑血管未见明显异常', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // DR - 普通X光摄影
+            { id: 'R009', date: '2026-02-15 10:00', type: 'DR', name: '胸部X光片(数字化)', part: '胸部', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '心肺未见明显异常', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R010', date: '2025-12-05 14:00', type: 'DR', name: '腰椎正侧位片', part: '腰椎', hospital: 'XX医科大学XX医院', domainId: 'NFYY', result: '腰椎退行性变', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // 特殊X光摄影
+            { id: 'R011', date: '2025-10-08 11:20', type: '特殊X光', name: '乳腺钼靶摄影', part: '乳腺', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '双侧乳腺未见明显异常', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R012', date: '2025-09-22 16:00', type: '特殊X光', name: '消化道钡餐造影', part: '消化道', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '食管胃未见明显异常', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // 超声检查
+            { id: 'R013', date: '2026-03-15 11:20', type: '超声', name: '腹部彩超', part: '腹部', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '轻度脂肪肝', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R014', date: '2025-08-22 11:30', type: '超声', name: '甲状腺彩超', part: '甲状腺', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '甲状腺双侧叶囊性结节', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R015', date: '2025-06-15 09:45', type: '超声', name: '心脏彩超', part: '心脏', hospital: 'XX市第一人民医院', domainId: 'GZYY', result: '二尖瓣轻度反流', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // 病理检查
+            { id: 'R016', date: '2025-10-25 10:30', type: '病理', name: '肺穿刺活检病理', part: '肺部', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '良性病变', reportStatus: '已上传', imageStatus: '未上传' },
+            { id: 'R017', date: '2025-08-10 14:00', type: '病理', name: '胃镜活检病理', part: '胃部', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '慢性浅表性胃炎', reportStatus: '已上传', imageStatus: '未上传' },
+
+            // 内镜检查
+            { id: 'R018', date: '2025-11-05 09:30', type: '内镜', name: '电子胃镜检查', part: '胃部', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '慢性浅表性胃炎', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R019', date: '2025-07-20 08:00', type: '内镜', name: '结肠镜检查', part: '结肠', hospital: 'XX医科大学XX医院', domainId: 'NFYY', result: '结肠息肉', reportStatus: '未上传', imageStatus: '已上传' },
+
+            // 核医学检查
+            { id: 'R020', date: '2025-09-12 09:00', type: '核医学', name: 'PET-CT全身扫描', part: '全身', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '未见明显异常代谢灶', reportStatus: '已上传', imageStatus: '已上传' },
+            { id: 'R021', date: '2025-06-28 10:30', type: '核医学', name: '骨扫描', part: '骨骼', hospital: 'XX大学附属第一医院', domainId: 'ZSYY', result: '未见明显异常', reportStatus: '已上传', imageStatus: '已上传' },
+
+            // 其他检查
+            { id: 'R022', date: '2025-05-15 11:00', type: '其他', name: '心电图检查', part: '心脏', hospital: 'XX市第一人民医院', domainId: 'GZYY', result: '窦性心律', reportStatus: '已上传', imageStatus: '未上传' },
+            { id: 'R023', date: '2025-04-20 14:30', type: '其他', name: '肺功能检查', part: '肺部', hospital: 'XX省人民医院', domainId: 'GDSPH', result: '轻度通气功能障碍', reportStatus: '未上传', imageStatus: '未上传' },
+        ];
+
+        let currentView = 'list';
+        let selectedExamIds = new Set();
+        let privacyVisible = false;
+        const mainPatientName = '张伟明';
+
+        // ==================== 社保卡号脱敏辅助函数 ====================
+        function maskSocialSecurityCard(cardNumber) {
+            if (!cardNumber || cardNumber.length < 6) return cardNumber;
+            return cardNumber.slice(0, -6) + '******';
+        }
+
+        // ==================== 视图切换 ====================
+        function showView(view) {
+            document.getElementById('view-list').classList.add('hidden');
+            document.getElementById('view-detail').classList.add('hidden');
+            document.getElementById('nav-list').classList.remove('active');
+            document.getElementById('nav-config')?.classList.remove('active');
+
+            if (view === 'list') {
+                document.getElementById('view-list').classList.remove('hidden');
+                document.getElementById('nav-list').classList.add('active');
+                document.getElementById('breadcrumb-current').textContent = '患者主索引列表';
+            } else if (view === 'detail') {
+                document.getElementById('view-detail').classList.remove('hidden');
+                document.getElementById('breadcrumb-current').textContent = '患者详情';
+                renderHospitalList();
+                renderHospitalPatientInfo();
+                renderExamTable();
+            }
+        }
+
+        // ==================== 医院列表渲染（按城市分组，支持折叠） ====================
+        function renderHospitalList() {
+            const container = document.getElementById('hospital-list-container');
+            if (!container) return;
+
+            let html = '';
+            for (const [city, hospitals] of Object.entries(hospitalData)) {
+                // 默认折叠状态为true（折叠）
+                if (cityCollapseState[city] === undefined) {
+                    cityCollapseState[city] = true;
+                }
+                const isCollapsed = cityCollapseState[city];
+                const expandIcon = isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up';
+
+                html += `
+                    <div class="city-group mb-2">
+                        <div class="flex items-center gap-2 px-2 py-1.5 bg-medical-50 rounded-md cursor-pointer hover:bg-medical-100 transition-colors"
+                             onclick="toggleCityCollapse('${city}')">
+                            <i class="fas fa-map-marker-alt text-medical-500 text-xs"></i>
+                            <span class="text-xs font-medium text-medical-700">${city}</span>
+                            <span class="text-xs text-medical-500 ml-auto">${hospitals.length}家</span>
+                            <i class="fas ${expandIcon} text-medical-400 text-xs ml-1"></i>
+                        </div>
+                        <div class="space-y-1 mt-1 ${isCollapsed ? 'hidden' : ''}">
+                            ${hospitals.map(hospital => {
+                                const p = hospital.patientInfo;
+                                return `
+                                <div class="hospital-item px-2 py-2 rounded-md cursor-pointer transition-all hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 ${selectedHospitalId === hospital.id ? 'bg-white shadow-sm border-medical-200 ring-1 ring-medical-200' : ''}"
+                                     onclick="selectHospital('${hospital.id}')">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <div class="w-6 h-6 rounded bg-medical-100 flex items-center justify-center flex-shrink-0">
+                                                <i class="fas fa-hospital text-medical-600 text-xs"></i>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs font-medium text-slate-700 leading-tight">${hospital.name}</div>
+                                                <div class="text-xs text-slate-400 scale-90 origin-left">${hospital.domainId}</div>
+                                            </div>
+                                        </div>
+                                        <span class="px-1.5 py-0.5 rounded-full bg-medical-50 text-medical-600 text-xs font-medium whitespace-nowrap scale-90">
+                                            共 ${p.totalRecords} 条
+                                        </span>
+                                    </div>
+                                    <div class="pl-7 space-y-0.5">
+                                        <div class="flex items-center gap-1.5 text-xs">
+                                            <span class="text-slate-400 scale-90 origin-left">患者ID:</span>
+                                            <span class="font-mono text-slate-600 scale-90 origin-left">${p.patientId}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 text-xs">
+                                            <span class="text-slate-400 scale-90 origin-left">首诊:</span>
+                                            <span class="text-slate-600 scale-90 origin-left">${p.firstVisit}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `}).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // ==================== 切换城市分组折叠状态 ====================
+        function toggleCityCollapse(city) {
+            cityCollapseState[city] = !cityCollapseState[city];
+            renderHospitalList();
+        }
+
+        // ==================== 选择医院 ====================
+        function selectHospital(hospitalId) {
+            selectedHospitalId = hospitalId;
+            renderHospitalList();
+            renderHospitalPatientInfo();
+            renderExamTable();
+        }
+
+        // ==================== 渲染医院特定患者信息 ====================
+        function renderHospitalPatientInfo() {
+            const container = document.getElementById('hospital-patient-info');
+            if (!container) return;
+
+            if (!selectedHospitalId) {
+                // 默认选择第一个医院
+                const firstCity = Object.keys(hospitalData)[0];
+                if (firstCity && hospitalData[firstCity].length > 0) {
+                    selectedHospitalId = hospitalData[firstCity][0].id;
+                    renderHospitalList();
+                }
+            }
+
+            // 查找选中的医院
+            let hospital = null;
+            for (const hospitals of Object.values(hospitalData)) {
+                hospital = hospitals.find(h => h.id === selectedHospitalId);
+                if (hospital) break;
+            }
+
+            if (!hospital) {
+                container.innerHTML = '<div class="text-center text-slate-400 py-4">请选择医院</div>';
+                return;
+            }
+
+            const p = hospital.patientInfo;
+            const hl7StatusClass = p.hl7Status === '已同步' ? 'bg-green-100 text-green-600' :
+                                   p.hl7Status === '同步中' ? 'bg-blue-100 text-blue-600' :
+                                   'bg-orange-100 text-orange-600';
+
+            // 根据隐私状态决定显示内容
+            const displayName = privacyVisible ? p.name : p.name.charAt(0) + '**';
+            const displayPhone = privacyVisible ? p.phone : p.phone.slice(0, -4) + '****';
+            const displayIdCard = privacyVisible ? p.idCard : p.idCard.slice(0, -4) + '****';
+            const displaySocialSecurity = privacyVisible ? p.socialSecurityCard : maskSocialSecurityCard(p.socialSecurityCard);
+            const districtIndex = p.address.indexOf('区') + 1;
+            const displayAddress = privacyVisible ? p.address : p.address.substring(0, districtIndex) + ' ****';
+
+            container.innerHTML = `
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center text-white">
+                            <i class="fas fa-hospital text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-slate-800">${hospital.name}</h3>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-xs text-slate-500">域ID: <span class="font-mono text-slate-700">${hospital.domainId}</span></span>
+                                <span class="px-2 py-0.5 rounded text-xs ${hl7StatusClass}">${p.hl7Status}</span>
+                                <span class="text-xs text-slate-400">上次同步: ${p.lastSync}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="syncHospitalData('${hospital.id}')" class="px-3 py-1.5 rounded-lg bg-medical-50 text-medical-600 text-xs font-medium hover:bg-medical-100 flex items-center gap-1">
+                            <i class="fas fa-sync-alt"></i>同步
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-100">
+                    <div class="grid grid-cols-4 gap-x-6 gap-y-3">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">患者ID</span>
+                            <span class="text-sm font-mono text-slate-700 truncate" title="${p.patientId}">${p.patientId}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">姓名</span>
+                            <span class="text-sm text-slate-700 font-medium truncate" title="${displayName}">${displayName}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">性别</span>
+                            <span class="text-sm text-slate-700">${p.gender}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">出生日期</span>
+                            <span class="text-sm text-slate-700">${p.birthDate}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">证件号码</span>
+                            <span class="text-sm font-mono text-slate-700 truncate" title="${displayIdCard}">${displayIdCard}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">社保卡号</span>
+                            <span class="text-sm font-mono text-slate-700 truncate" title="${displaySocialSecurity}">${displaySocialSecurity}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">联系电话</span>
+                            <span class="text-sm text-slate-700 truncate" title="${displayPhone}">${displayPhone}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-slate-400 mb-1">就诊卡号</span>
+                            <span class="text-sm font-mono text-slate-700 truncate" title="${p.medicalCard}">${p.medicalCard}</span>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="text-xs text-slate-400 mb-1">现住地址</div>
+                        <div class="text-sm text-slate-700 flex items-center gap-2">
+                            <i class="fas fa-map-marker-alt text-medical-400 flex-shrink-0"></i>
+                            <span class="truncate" title="${displayAddress}">${displayAddress}</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center gap-6 text-xs text-slate-500 pt-3 border-t border-slate-50">
+                        <span><i class="fas fa-calendar-alt mr-1 text-medical-400"></i>首次就诊: ${p.firstVisit}</span>
+                        <span><i class="fas fa-calendar-check mr-1 text-medical-400"></i>最近就诊: ${p.lastVisit}</span>
+                        <span><i class="fas fa-file-medical mr-1 text-medical-400"></i>记录数: ${p.totalRecords}条</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ==================== 同步医院数据 ====================
+        function syncHospitalData(hospitalId) {
+            showToast('正在同步医院数据...', 'info');
+            setTimeout(() => {
+                showToast('医院数据同步成功', 'success');
+            }, 1500);
+        }
+
+        // ==================== 患者列表渲染 ====================
+        function renderPatientTable(data = patientData) {
+            const tbody = document.getElementById('patient-table-body');
+            tbody.innerHTML = data.map((p, i) => {
+                // 隐私脱敏处理
+                const maskedName = p.name.charAt(0) + '**';
+                const maskedIdCard = p.idcard.slice(0, -4) + '****';
+                const maskedSocialSecurity = maskSocialSecurityCard(p.socialSecurityCard);
+                const maskedPhone = p.phone.slice(0, -4) + '****';
+
+                return `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-3.5 text-sm text-slate-600">${i + 1}</td>
+                    <td class="px-4 py-3.5">
+                        <span class="font-mono text-sm text-medical-600 font-medium">${p.empi}</span>
+                    </td>
+                    <td class="px-4 py-3.5">
+                        <span class="text-sm font-medium text-slate-800">${maskedName}</span>
+                    </td>
+                    <td class="px-4 py-3.5">
+                        <span class="px-2 py-1 rounded text-xs ${p.gender === '男' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'}">${p.gender}</span>
+                    </td>
+                    <td class="px-4 py-3.5 text-sm text-slate-600">${p.birthDate}</td>
+                    <td class="px-4 py-3.5">
+                        <span class="font-mono text-sm text-slate-600">${maskedIdCard}</span>
+                    </td>
+                    <td class="px-4 py-3.5">
+                        <span class="font-mono text-sm text-slate-600">${maskedSocialSecurity}</span>
+                    </td>
+                    <td class="px-4 py-3.5 text-sm text-slate-600">${maskedPhone}</td>
+                    <td class="px-4 py-3.5">
+                        <span class="text-sm font-medium text-slate-700">${p.totalExams}</span>
+                    </td>
+                    <td class="px-4 py-3.5">
+                        <span class="px-2 py-1 rounded-full bg-purple-50 text-purple-600 text-xs font-medium">${p.hospitalCount}家</span>
+                    </td>
+                    <td class="px-4 py-3.5">
+                        <button onclick="showView('detail')" class="px-3 py-1.5 rounded-lg bg-medical-50 text-medical-600 text-xs font-medium hover:bg-medical-100 transition-colors">
+                            <i class="fas fa-eye mr-1"></i>查看详情
+                        </button>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        // ==================== 检查记录表格渲染 ====================
+        function renderExamTable() {
+            const tbody = document.getElementById('exam-table-body');
+            const countEl = document.getElementById('table-record-count');
+
+            let records = [...examRecordsData];
+
+            // 排序
+            const sortOrder = document.getElementById('sort-order').value;
+            records.sort((a, b) => {
+                const dateA = new Date(a.date), dateB = new Date(b.date);
+                return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+            });
+
+            // 筛选 - 根据选中的医院筛选
+            if (selectedHospitalId) {
+                records = records.filter(r => r.domainId === selectedHospitalId);
+            }
+            const typeFilter = document.getElementById('record-filter').value;
+            if (typeFilter !== 'all') records = records.filter(r => r.type === typeFilter);
+
+            countEl.textContent = `共 ${records.length} 条记录`;
+
+            if (records.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400"><i class="fas fa-inbox text-2xl mb-2 block"></i><p>暂无记录</p></td></tr>`;
+                return;
+            }
+
+            // 表格形式布局
+            tbody.innerHTML = records.map((r, i) => {
+                const typeColor = r.type === 'CT' ? 'bg-blue-100 text-blue-700' :
+                                 r.type === 'MRI' ? 'bg-purple-100 text-purple-700' :
+                                 r.type === 'DSA' ? 'bg-red-100 text-red-700' :
+                                 r.type === 'DR' ? 'bg-cyan-100 text-cyan-700' :
+                                 r.type === '超声' ? 'bg-orange-100 text-orange-700' :
+                                 r.type === '病理' ? 'bg-pink-100 text-pink-700' :
+                                 r.type === '内镜' ? 'bg-green-100 text-green-700' :
+                                 r.type === '核医学' ? 'bg-indigo-100 text-indigo-700' :
+                                 r.type === '特殊X光' ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-700';
+
+                // 报告状态颜色 - 只有已上传/未上传两种状态
+                const reportStatusColor = r.reportStatus === '已上传' ? 'text-green-600 bg-green-50' : 'text-slate-500 bg-slate-100';
+
+                // 影像状态颜色 - 只有已上传/未上传两种状态
+                const imageStatusColor = r.imageStatus === '已上传' ? 'text-green-600 bg-green-50' : 'text-slate-500 bg-slate-100';
+
+                return `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 text-sm text-slate-700">${r.date}</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${typeColor}">${r.type}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-slate-700">${r.part || '-'}</td>
+                        <td class="px-4 py-3 text-sm text-slate-700">${r.name}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${reportStatusColor}">${r.reportStatus}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${imageStatusColor}">${r.imageStatus}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <button class="px-4 py-1.5 rounded-lg bg-medical-500 text-white text-xs font-medium hover:bg-medical-600 transition-colors" title="查看详情">
+                                <i class="fas fa-eye mr-1"></i>详情
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ==================== 工具函数 ====================
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-orange-500' };
+            const icons = { success: 'fa-check-circle', error: 'fa-times-circle', warning: 'fa-exclamation-triangle' };
+
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[240px] transform translate-x-full transition-transform duration-300`;
+            toast.innerHTML = `<i class="fas ${icons[type]}"></i><span class="text-sm font-medium">${message}</span>`;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-x-full'));
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function searchPatients() {
+            const name = document.getElementById('search-name').value.toLowerCase();
+            const empi = document.getElementById('search-empi').value.toLowerCase();
+            const idcard = document.getElementById('search-idcard').value;
+            const socialSecurity = document.getElementById('search-social-security').value;
+            const birthDate = document.getElementById('search-birthdate').value;
+            const phone = document.getElementById('search-phone').value;
+            const hospital = document.getElementById('search-hospital').value;
+
+            const filtered = patientData.filter(p => {
+                // 姓名过滤
+                if (name && !p.name.toLowerCase().includes(name)) return false;
+                // EMPI过滤
+                if (empi && !p.empi.toLowerCase().includes(empi)) return false;
+                // 证件号码过滤
+                if (idcard && !p.idcard.includes(idcard)) return false;
+                // 社保卡号过滤
+                if (socialSecurity && !p.socialSecurityCard.includes(socialSecurity)) return false;
+                // 出生日期过滤
+                if (birthDate && p.birthDate !== birthDate) return false;
+                // 联系电话过滤
+                if (phone && !p.phone.includes(phone)) return false;
+                // 就诊医院过滤
+                if (hospital && !p.hospitals.includes(hospital)) return false;
+                return true;
+            });
+
+            renderPatientTable(filtered);
+        }
+
+        function resetSearch() {
+            document.getElementById('search-name').value = '';
+            document.getElementById('search-empi').value = '';
+            document.getElementById('search-idcard').value = '';
+            document.getElementById('search-social-security').value = '';
+            document.getElementById('search-birthdate').value = '';
+            document.getElementById('search-phone').value = '';
+            document.getElementById('search-hospital').value = '';
+            renderPatientTable();
+        }
+
+        function toggleIdCard() {
+            const el = document.getElementById('detail-idcard');
+            const icon = document.querySelector('#detail-idcard + button i');
+            if (el.textContent.includes('*')) {
+                el.textContent = '440103198103XXXX';
+                icon.className = 'fas fa-eye-slash text-xs';
+            } else {
+                el.textContent = '440103********1234';
+                icon.className = 'fas fa-eye text-xs';
+            }
+        }
+
+        function toggleHeaderIdCard() {
+            const el = document.getElementById('header-idcard');
+            const icon = document.querySelector('#header-idcard + button i');
+            if (el.textContent.includes('*')) {
+                el.textContent = '440103198103XXXX';
+                icon.className = 'fas fa-eye-slash text-xs';
+            } else {
+                el.textContent = '440103********1234';
+                icon.className = 'fas fa-eye text-xs';
+            }
+        }
+
+        function copyEMPI() {
+            navigator.clipboard.writeText('EMPI202403150001').then(() => showToast('主索引号已复制', 'success'));
+        }
+
+        // ==================== 全局隐私保护功能 ====================
+        function toggleGlobalPrivacy() {
+            privacyVisible = !privacyVisible;
+
+            // 更新按钮状态
+            const btnIcon = document.getElementById('global-privacy-icon');
+            const btnText = document.getElementById('global-privacy-text');
+            const btn = document.getElementById('global-privacy-btn');
+
+            if (privacyVisible) {
+                btnIcon.className = 'fas fa-eye-slash text-medical-500';
+                btnText.textContent = '隐藏隐私信息';
+                btn.classList.add('bg-medical-50', 'border-medical-200');
+            } else {
+                btnIcon.className = 'fas fa-eye text-medical-500';
+                btnText.textContent = '显示隐私信息';
+                btn.classList.remove('bg-medical-50', 'border-medical-200');
+            }
+
+            // 更新顶部头部信息
+            updateHeaderPrivacy();
+
+            // 更新右侧患者信息区域
+            renderHospitalPatientInfo();
+        }
+
+        function updateHeaderPrivacy() {
+            // 姓名
+            const nameEl = document.getElementById('header-name');
+            if (nameEl) {
+                nameEl.textContent = privacyVisible ? '张伟明' : '张**';
+            }
+
+            // 身份证 - 仅隐藏后四位
+            const idCardEl = document.getElementById('header-idcard');
+            if (idCardEl) {
+                idCardEl.textContent = privacyVisible ? '440103198103XXXX' : '44010319810315****';
+            }
+
+            // 社保卡号 - 隐藏后六位
+            const socialSecurityEl = document.getElementById('header-social-security');
+            if (socialSecurityEl) {
+                socialSecurityEl.textContent = privacyVisible ? '440103198103XXXX' : '4401031981******';
+            }
+
+            // 电话 - 仅隐藏后四位
+            const phoneEl = document.getElementById('header-phone');
+            if (phoneEl) {
+                phoneEl.textContent = privacyVisible ? '138XXXX5678' : '1380013****';
+            }
+        }
+
+        // ==================== 主索引配置功能 ====================
+        
+        // 预设字段库
+        const availableFields = [
+            { key: 'socialSecurityCard', label: '社保卡号', defaultWeight: 25 },
+            { key: 'name', label: '姓名', defaultWeight: 20, hasMatchType: true },
+            { key: 'birthDate', label: '出生日期', defaultWeight: 30 },
+            { key: 'gender', label: '性别', defaultWeight: 10 },
+            { key: 'phone', label: '手机号码', defaultWeight: 15 },
+            { key: 'address', label: '住址', defaultWeight: 10 },
+            { key: 'email', label: '电子邮箱', defaultWeight: 5 },
+            { key: 'emergencyContact', label: '紧急联系人', defaultWeight: 10 }
+        ];
+
+        // 默认加权规则
+        let weightedRules = [
+            { key: 'name', label: '姓名', weight: 20, enabled: true, matchType: 'pinyin' },
+            { key: 'birthDate', label: '出生日期', weight: 30, enabled: true },
+            { key: 'gender', label: '性别', weight: 15, enabled: true },
+            { key: 'phone', label: '手机号码', weight: 15, enabled: true },
+            { key: 'socialSecurityCard', label: '社保卡号', weight: 20, enabled: true }
+        ];
+
+        // 渲染加权规则列表
+        function renderWeightedRules() {
+            const container = document.getElementById('weighted-rules-list');
+            if (!container) return;
+
+            container.innerHTML = weightedRules.map((rule, index) => `
+                <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input type="checkbox" ${rule.enabled ? 'checked' : ''} 
+                            onchange="toggleRule(${index})" class="sr-only peer">
+                        <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-medical-500"></div>
+                    </label>
+                    <span class="text-xs text-slate-700 w-16 flex-shrink-0">${rule.label}</span>
+                    ${rule.hasMatchType ? `
+                    <select onchange="updateRuleMatchType(${index}, this.value)" 
+                        class="px-1.5 py-1 rounded border border-slate-200 text-xs bg-white focus:border-medical-400 outline-none">
+                        <option value="exact" ${rule.matchType === 'exact' ? 'selected' : ''}>精确</option>
+                        <option value="pinyin" ${rule.matchType === 'pinyin' ? 'selected' : ''}>拼音</option>
+                    </select>
+                    ` : '<span class="text-xs text-slate-400 w-12">完全匹配</span>'}
+                    <div class="flex items-center gap-1.5 ml-auto">
+                        <span class="text-xs text-slate-400">权重:</span>
+                        <input type="number" value="${rule.weight}" min="0" max="100" 
+                            onchange="updateRuleWeight(${index}, this.value)"
+                            class="w-12 px-1.5 py-1 rounded border border-slate-200 text-xs text-center focus:border-medical-400 outline-none">
+                        <span class="text-xs text-slate-400">分</span>
+                    </div>
+                    <button onclick="removeRule(${index})" class="p-1 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // 切换规则启用状态
+        function toggleRule(index) {
+            weightedRules[index].enabled = !weightedRules[index].enabled;
+            renderWeightedRules();
+        }
+
+        // 更新规则权重
+        function updateRuleWeight(index, value) {
+            weightedRules[index].weight = parseInt(value) || 0;
+        }
+
+        // 更新规则匹配类型
+        function updateRuleMatchType(index, value) {
+            weightedRules[index].matchType = value;
+        }
+
+        // 删除规则
+        function removeRule(index) {
+            weightedRules.splice(index, 1);
+            renderWeightedRules();
+        }
+
+        // 打开新增规则弹窗（简化版，直接使用 prompt）
+        function openAddRuleModal() {
+            // 获取已添加的字段 key
+            const addedKeys = weightedRules.map(r => r.key);
+            // 过滤出未添加的字段
+            const availableOptions = availableFields.filter(f => !addedKeys.includes(f.key));
+            
+            if (availableOptions.length === 0) {
+                showToast('所有可用字段已添加', 'warning');
+                return;
+            }
+
+            // 构建选项列表
+            const optionsStr = availableOptions.map((f, i) => `${i + 1}. ${f.label}`).join('\n');
+            const choice = prompt(`请选择要添加的字段（输入序号）:\n\n${optionsStr}`);
+            
+            if (!choice) return;
+            
+            const idx = parseInt(choice) - 1;
+            if (idx >= 0 && idx < availableOptions.length) {
+                const field = availableOptions[idx];
+                weightedRules.push({
+                    key: field.key,
+                    label: field.label,
+                    weight: field.defaultWeight,
+                    enabled: true,
+                    hasMatchType: field.hasMatchType,
+                    matchType: field.hasMatchType ? 'pinyin' : undefined
+                });
+                renderWeightedRules();
+                showToast(`已添加"${field.label}"字段`, 'success');
+            }
+        }
+
+        // ==================== 阈值滑动条更新函数（两段式单滑块）====================
+        
+        let currentThreshold = 75; // 当前阈值
+        let isDragging = false;    // 是否正在拖拽
+        
+        // 设置阈值（快捷按钮使用）
+        function setThreshold(value) {
+            currentThreshold = Math.max(0, Math.min(100, value));
+            updateThresholdUI();
+            updateThresholdInputs();
+            showToast(`阈值已设置为 ${currentThreshold}分`, 'success');
+        }
+        
+        // 更新阈值UI显示
+        function updateThresholdUI() {
+            const slider = document.getElementById('threshold-slider');
+            const trackRed = document.getElementById('track-red');
+            const trackGreen = document.getElementById('track-green');
+            const display = document.getElementById('threshold-display');
+            const valueRed = document.getElementById('threshold-value-red');
+            const valueGreen = document.getElementById('threshold-value-green');
+            
+            if (slider) {
+                slider.style.left = currentThreshold + '%';
+            }
+            if (trackRed) {
+                trackRed.style.width = currentThreshold + '%';
+            }
+            if (trackGreen) {
+                trackGreen.style.width = (100 - currentThreshold) + '%';
+            }
+            if (display) {
+                display.textContent = currentThreshold + '分';
+            }
+            if (valueRed) {
+                valueRed.textContent = currentThreshold;
+            }
+            if (valueGreen) {
+                valueGreen.textContent = currentThreshold;
+            }
+        }
+        
+        // 更新隐藏输入框（保持兼容性）
+        function updateThresholdInputs() {
+            const suspectLow = currentThreshold;
+            const autoMerge = currentThreshold;
+            const different = Math.max(0, currentThreshold - 20);
+            
+            const inputs = {
+                'threshold-suspect-low': suspectLow,
+                'threshold-suspect-high': autoMerge,
+                'threshold-auto-merge': autoMerge,
+                'threshold-different': different,
+                'threshold-suspect-low-display': suspectLow,
+                'threshold-suspect-high-display': autoMerge
+            };
+            
+            for (const [id, value] of Object.entries(inputs)) {
+                const input = document.getElementById(id);
+                if (input) input.value = value;
+            }
+        }
+        
+        // 初始化阈值滑动条
+        function initThresholdSlider() {
+            const slider = document.getElementById('threshold-slider');
+            if (!slider) return;
+            
+            // 鼠标/触摸按下
+            const startDrag = (e) => {
+                isDragging = true;
+                e.preventDefault();
+            };
+            
+            // 鼠标/触摸移动
+            const onDrag = (e) => {
+                if (!isDragging) return;
+                
+                const track = slider.parentElement;
+                const rect = track.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const percentage = ((clientX - rect.left) / rect.width) * 100;
+                
+                currentThreshold = Math.max(0, Math.min(100, Math.round(percentage)));
+                updateThresholdUI();
+            };
+            
+            // 鼠标/触摸释放
+            const endDrag = () => {
+                if (isDragging) {
+                    isDragging = false;
+                    updateThresholdInputs();
+                }
+            };
+            
+            // 点击轨道直接跳转
+            const track = slider.parentElement;
+            track.addEventListener('click', (e) => {
+                if (e.target === slider || slider.contains(e.target)) return;
+                const rect = track.getBoundingClientRect();
+                const percentage = ((e.clientX - rect.left) / rect.width) * 100;
+                currentThreshold = Math.max(0, Math.min(100, Math.round(percentage)));
+                updateThresholdUI();
+                updateThresholdInputs();
+            });
+            
+            // 绑定事件
+            slider.addEventListener('mousedown', startDrag);
+            slider.addEventListener('touchstart', startDrag, { passive: false });
+            
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('touchmove', onDrag, { passive: false });
+            
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+            
+            // 初始化显示
+            updateThresholdUI();
+            updateThresholdInputs();
+        }
+        
+        // ==================== 阈值设定更新函数（数值输入框 - 保持兼容性）====================
+        
+        // 从输入框更新阈值
+        function updateThresholdFromInput() {
+            const autoMerge = parseInt(document.getElementById('threshold-auto-merge').value) || 75;
+            currentThreshold = autoMerge;
+            updateThresholdUI();
+        }
+        
+        // 同步阈值输入框（保持兼容性）
+        function syncThresholdInputs(type) {
+            updateThresholdFromInput();
+        }
+        
+        // 初始化阈值显示
+        function initThresholdDisplays() {
+            initThresholdSlider();
+        }
+
+        // 保存配置
+        function saveConfig() {
+            const config = {
+                empiLength: document.getElementById('config-empi-length').value,
+                strongRules: {
+                    idcard: document.getElementById('strong-rule-idcard').checked,
+                    social: document.getElementById('strong-rule-social').checked
+                },
+                weightedRules: weightedRules,
+                thresholds: {
+                    different: document.getElementById('threshold-different').value,
+                    suspectLow: document.getElementById('threshold-suspect-low').value,
+                    suspectHigh: document.getElementById('threshold-suspect-high').value,
+                    autoMerge: document.getElementById('threshold-auto-merge').value
+                }
+            };
+            
+            console.log('保存的配置:', config);
+            showToast('配置保存成功', 'success');
+        }
+
+        // 重置配置
+        function resetConfig() {
+            if (!confirm('确定要重置为默认配置吗？')) return;
+            
+            document.getElementById('config-empi-length').value = 16;
+            document.getElementById('strong-rule-idcard').checked = true;
+            document.getElementById('strong-rule-social').checked = true;
+            
+            // 重置阈值输入框
+            document.getElementById('threshold-suspect-low').value = 60;
+            document.getElementById('threshold-suspect-low-display').value = 60;
+            document.getElementById('threshold-suspect-high-display').value = 80;
+            document.getElementById('threshold-auto-merge').value = 80;
+            
+            // 更新隐藏输入框
+            document.getElementById('threshold-different').value = 40;
+            document.getElementById('threshold-suspect-high').value = 80;
+            
+            weightedRules = [
+                { key: 'name', label: '姓名', weight: 20, enabled: true, matchType: 'pinyin' },
+                { key: 'birthDate', label: '出生日期', weight: 30, enabled: true },
+                { key: 'gender', label: '性别', weight: 15, enabled: true },
+                { key: 'phone', label: '手机号码', weight: 15, enabled: true },
+                { key: 'socialSecurityCard', label: '社保卡号', weight: 20, enabled: true }
+            ];
+            renderWeightedRules();
+            showToast('已重置为默认配置', 'success');
+        }
+
+        // ==================== 沙盒试算功能 ====================
+
+        // 运行模拟计算
+        function runSimulation() {
+            // 获取患者 A 和 B 的数据
+            const patientA = {
+                name: document.getElementById('sandbox-a-name').value.trim(),
+                gender: document.getElementById('sandbox-a-gender').value,
+                birthDate: document.getElementById('sandbox-a-birthdate').value,
+                phone: document.getElementById('sandbox-a-phone').value.trim(),
+                socialSecurityCard: document.getElementById('sandbox-a-social').value.trim()
+            };
+            
+            const patientB = {
+                name: document.getElementById('sandbox-b-name').value.trim(),
+                gender: document.getElementById('sandbox-b-gender').value,
+                birthDate: document.getElementById('sandbox-b-birthdate').value,
+                phone: document.getElementById('sandbox-b-phone').value.trim(),
+                socialSecurityCard: document.getElementById('sandbox-b-social').value.trim()
+            };
+
+            // 验证输入
+            if (!patientA.name && !patientB.name) {
+                showToast('请至少输入一个患者的姓名', 'warning');
+                return;
+            }
+
+            // 获取阈值配置
+            const thresholds = {
+                different: parseInt(document.getElementById('threshold-different').value) || 40,
+                suspectLow: parseInt(document.getElementById('threshold-suspect-low').value) || 60,
+                suspectHigh: parseInt(document.getElementById('threshold-suspect-high').value) || 80,
+                autoMerge: parseInt(document.getElementById('threshold-auto-merge').value) || 90
+            };
+
+            // 计算得分
+            let totalScore = 0;
+            const hitRules = [];
+
+            weightedRules.forEach(rule => {
+                if (!rule.enabled) return;
+
+                let matched = false;
+                let score = 0;
+
+                switch (rule.key) {
+                    case 'name':
+                        if (rule.matchType === 'pinyin') {
+                            // 拼音匹配简化版：直接比较或包含关系
+                            if (patientA.name && patientB.name) {
+                                if (patientA.name === patientB.name) {
+                                    matched = true;
+                                    score = rule.weight;
+                                } else if (patientA.name.includes(patientB.name) || patientB.name.includes(patientA.name)) {
+                                    matched = true;
+                                    score = Math.round(rule.weight * 0.6);
+                                }
+                            }
+                        } else {
+                            // 精确匹配
+                            if (patientA.name && patientB.name && patientA.name === patientB.name) {
+                                matched = true;
+                                score = rule.weight;
+                            }
+                        }
+                        break;
+                    case 'birthDate':
+                        if (patientA.birthDate && patientB.birthDate && patientA.birthDate === patientB.birthDate) {
+                            matched = true;
+                            score = rule.weight;
+                        }
+                        break;
+                    case 'gender':
+                        if (patientA.gender && patientB.gender && patientA.gender === patientB.gender) {
+                            matched = true;
+                            score = rule.weight;
+                        }
+                        break;
+                    case 'phone':
+                        if (patientA.phone && patientB.phone && patientA.phone === patientB.phone) {
+                            matched = true;
+                            score = rule.weight;
+                        }
+                        break;
+                    case 'socialSecurityCard':
+                        if (patientA.socialSecurityCard && patientB.socialSecurityCard && 
+                            patientA.socialSecurityCard === patientB.socialSecurityCard) {
+                            matched = true;
+                            score = rule.weight;
+                        }
+                        break;
+                }
+
+                if (matched) {
+                    totalScore += score;
+                    hitRules.push({
+                        label: rule.label,
+                        score: score,
+                        detail: getMatchDetail(rule)
+                    });
+                }
+            });
+
+            // 判断结果类型
+            let resultType, resultColor, resultText;
+            if (totalScore < thresholds.different) {
+                resultType = 'different';
+                resultColor = 'red';
+                resultText = '不同患者，生成新主索引';
+            } else if (totalScore >= thresholds.suspectLow && totalScore <= thresholds.suspectHigh) {
+                resultType = 'suspect';
+                resultColor = 'orange';
+                resultText = '疑似重复，需人工干预';
+            } else if (totalScore >= thresholds.autoMerge) {
+                resultType = 'autoMerge';
+                resultColor = 'green';
+                resultText = '同一患者，自动合并主索引';
+            } else {
+                resultType = 'uncertain';
+                resultColor = 'blue';
+                resultText = '分数处于中间区间，建议人工审核';
+            }
+
+            // 显示结果（传入患者A和B的数据）
+            displaySimulationResult(totalScore, hitRules, resultType, resultColor, resultText, thresholds, patientA, patientB);
+        }
+
+        // 获取匹配详情描述
+        function getMatchDetail(rule) {
+            if (rule.key === 'name') {
+                return rule.matchType === 'pinyin' ? '姓名拼音一致' : '姓名精确匹配';
+            }
+            return `${rule.label}一致`;
+        }
+
+        // 显示模拟结果
+        function displaySimulationResult(score, hitRules, resultType, color, resultText, thresholds, patientA, patientB) {
+            const resultDiv = document.getElementById('simulation-result');
+            const contentDiv = document.getElementById('result-content');
+            
+            const colorClasses = {
+                red: 'from-red-500 to-red-600',
+                orange: 'from-orange-500 to-orange-600',
+                green: 'from-green-500 to-green-600',
+                blue: 'from-blue-500 to-blue-600'
+            };
+
+            const bgClasses = {
+                red: 'bg-red-50 border-red-200',
+                orange: 'bg-orange-50 border-orange-200',
+                green: 'bg-green-50 border-green-200',
+                blue: 'bg-blue-50 border-blue-200'
+            };
+            
+            // 生成EMPI预览逻辑
+            const generateEMPIPreview = (patient, isMerged) => {
+                if (!patient || !patient.name) return '<span class="text-slate-400">未输入</span>';
+                
+                // 根据匹配结果决定EMPI状态
+                let empiStatus, empiClass;
+                if (isMerged && resultType === 'autoMerge') {
+                    empiStatus = '共享同一 EMPI';
+                    empiClass = 'text-green-600';
+                } else if (resultType === 'different') {
+                    empiStatus = '将生成新 EMPI';
+                    empiClass = 'text-red-600';
+                } else if (resultType === 'suspect') {
+                    empiStatus = '待人工确认';
+                    empiClass = 'text-orange-600';
+                } else {
+                    empiStatus = '待审核';
+                    empiClass = 'text-blue-600';
+                }
+                
+                // 脱敏处理
+                const maskedName = patient.name ? patient.name.charAt(0) + '**' : '-';
+                const maskedSocial = patient.socialSecurityCard ? patient.socialSecurityCard.slice(0, -6) + '******' : '-';
+                const maskedPhone = patient.phone ? patient.phone.slice(0, -4) + '****' : '-';
+                
+                return `
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-medium text-slate-700">${maskedName}</span>
+                            <span class="text-xs ${empiClass} font-medium">${empiStatus}</span>
+                        </div>
+                        <div class="space-y-1 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-400 w-16 flex-shrink-0">姓名:</span>
+                                <span class="text-slate-700">${patient.name || '-'}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-400 w-16 flex-shrink-0">性别:</span>
+                                <span class="text-slate-700">${patient.gender || '-'}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-400 w-16 flex-shrink-0">出生日期:</span>
+                                <span class="text-slate-700">${patient.birthDate || '-'}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-400 w-16 flex-shrink-0">手机号:</span>
+                                <span class="font-mono text-slate-600">${maskedPhone}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-400 w-16 flex-shrink-0">社保卡:</span>
+                                <span class="font-mono text-slate-600">${maskedSocial}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            contentDiv.innerHTML = `
+                <!-- 总分展示 -->
+                <div class="flex items-center justify-between p-3 bg-white rounded-lg">
+                    <span class="text-sm text-slate-600">系统计算得分</span>
+                    <span class="text-2xl font-bold text-${color}-600">${score}<span class="text-sm text-slate-400 ml-1">分</span></span>
+                </div>
+                
+                <!-- 患者 A 和 B 信息对比 -->
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- 患者 A -->
+                    <div class="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <div class="w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center flex-shrink-0">A</div>
+                            <span class="text-xs font-semibold text-blue-700">患者 A</span>
+                        </div>
+                        ${generateEMPIPreview(patientA, false)}
+                    </div>
+                    
+                    <!-- 患者 B -->
+                    <div class="p-2.5 bg-purple-50 rounded-lg border border-purple-100">
+                        <div class="flex items-center gap-1.5 mb-2">
+                            <div class="w-5 h-5 rounded-full bg-purple-500 text-white text-[10px] flex items-center justify-center flex-shrink-0">B</div>
+                            <span class="text-xs font-semibold text-purple-700">患者 B</span>
+                        </div>
+                        ${generateEMPIPreview(patientB, true)}
+                    </div>
+                </div>
+                
+                <!-- 命中规则 -->
+                <div class="p-3 bg-white rounded-lg">
+                    <h5 class="text-xs font-medium text-slate-500 mb-2">命中规则</h5>
+                    ${hitRules.length > 0 ? `
+                        <div class="space-y-1.5">
+                            ${hitRules.map(r => `
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-slate-600"><i class="fas fa-check-circle text-green-500 mr-1"></i>${r.detail}</span>
+                                    <span class="font-medium text-slate-700">+${r.score}分</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p class="text-xs text-slate-400">未命中任何规则</p>'}
+                </div>
+
+                <!-- 未命中规则 -->
+                ${weightedRules.filter(r => r.enabled && !hitRules.find(h => h.label === r.label)).length > 0 ? `
+                <div class="p-3 bg-white rounded-lg">
+                    <h5 class="text-xs font-medium text-slate-500 mb-2">未命中规则</h5>
+                    <div class="space-y-1.5">
+                        ${weightedRules.filter(r => r.enabled && !hitRules.find(h => h.label === r.label)).map(r => `
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-slate-400"><i class="fas fa-times-circle text-slate-300 mr-1"></i>${r.label}</span>
+                                <span class="text-slate-300">+0分</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- 预测动作 -->
+                <div class="p-3 ${bgClasses[color]} rounded-lg">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center">
+                            <i class="fas fa-${resultType === 'different' ? 'user-plus' : resultType === 'autoMerge' ? 'merge' : resultType === 'suspect' ? 'exclamation-triangle' : 'question'} text-white text-xs"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-slate-700">预测动作</p>
+                            <p class="text-sm font-semibold text-${color}-700">${resultText}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 阈值参考 -->
+                <div class="p-3 bg-white rounded-lg">
+                    <h5 class="text-xs font-medium text-slate-500 mb-2">阈值参考</h5>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex items-center justify-between">
+                            <span class="text-red-500"><i class="fas fa-circle text-[6px] mr-1"></i>不同患者</span>
+                            <span class="text-slate-500">&lt; ${thresholds.autoMerge}分</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-green-500"><i class="fas fa-circle text-[6px] mr-1"></i>自动合并</span>
+                            <span class="text-slate-500">&ge; ${thresholds.autoMerge}分</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultDiv.classList.remove('hidden');
+        }
+
+        // ==================== 视图切换增强 ====================
+        const originalShowView = showView;
+        showView = function(view) {
+            // 调用原有逻辑
+            document.getElementById('view-list').classList.add('hidden');
+            document.getElementById('view-detail').classList.add('hidden');
+            document.getElementById('view-config')?.classList.add('hidden');
+            document.getElementById('nav-list').classList.remove('active');
+            document.getElementById('nav-config')?.classList.remove('active');
+
+            if (view === 'list') {
+                document.getElementById('view-list').classList.remove('hidden');
+                document.getElementById('nav-list').classList.add('active');
+                document.getElementById('breadcrumb-current').textContent = '患者主索引列表';
+            } else if (view === 'detail') {
+                document.getElementById('view-detail').classList.remove('hidden');
+                document.getElementById('breadcrumb-current').textContent = '患者详情';
+                renderHospitalList();
+                renderHospitalPatientInfo();
+                renderExamTable();
+            } else if (view === 'config') {
+                document.getElementById('view-config').classList.remove('hidden');
+                document.getElementById('nav-config').classList.add('active');
+                document.getElementById('breadcrumb-current').textContent = '主索引配置';
+                renderWeightedRules();
+            }
+        };
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            renderPatientTable();
+            initThresholdDisplays();
+        });
+    </script>
+</body>
+</html>
+
